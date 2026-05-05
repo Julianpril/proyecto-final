@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lobby - Sala de Juego</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="config.js"></script>
+</head>
+<body>
+    <h1 data-text="SALA DE JUEGO">SALA DE JUEGO</h1>
+    <div class="status">
+        🎮 Conectado como: <strong id="currentUser">---</strong>
+    </div>
+    <h2>👥 JUGADORES EN LÍNEA</h2>
+    <ul id="playersList">
+        <li>Cargando guerreros...</li>
+    </ul>
+    <button id="logoutBtn" class="logout-btn">🚪 CERRAR SESIÓN</button>
+
+    <div class="particles" id="particles"></div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        const username = localStorage.getItem('username');
+
+        if (!token) {
+            alert('⚠️ No hay sesión activa. Redirigiendo al campo de batalla.');
+            window.location.href = 'index.html';
+        }
+
+        document.getElementById('currentUser').textContent = username || 'Invitado';
+
+        const WS_URL = window.APP_CONFIG.COORDINATOR_WS_URL;
+        let ws = null;
+
+        function connectWebSocket() {
+            const wsUrl = `${WS_URL}/connect?token=${encodeURIComponent(token)}`;
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('✅ WebSocket conectado al coordinador');
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'players_update') {
+                        renderPlayers(msg.players);
+                    }
+                } catch (err) {
+                    console.error('Error parseando mensaje WS:', err);
+                }
+            };
+
+            ws.onclose = (event) => {
+                console.log(`WebSocket cerrado: código ${event.code} - ${event.reason}`);
+                localStorage.removeItem('token');
+                localStorage.removeItem('username');
+                alert('🔌 Conexión perdida con el servidor. Volviendo al login...');
+                window.location.href = 'index.html';
+            };
+
+            ws.onerror = (error) => {
+                console.error('Error en WebSocket:', error);
+                ws.close();
+            };
+        }
+
+        function renderPlayers(players) {
+            const listEl = document.getElementById('playersList');
+            if (!players || players.length === 0) {
+                listEl.innerHTML = '<li>🌀 No hay jugadores en línea</li>';
+                return;
+            }
+            listEl.innerHTML = players.map(p => `
+                <li>
+                    🎮 ${escapeHtml(p.username)} 
+                    <span style="margin-left: auto; font-size: 0.75rem; color: #0ff;">⚡ ID: ${p.userId}</span>
+                </li>
+            `).join('');
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+
+        // Cerrar sesión
+        const logoutBtn = document.getElementById('logoutBtn');
+        logoutBtn.addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            }
+            localStorage.removeItem('token');
+            localStorage.removeItem('username');
+            window.location.href = 'index.html';
+        });
+
+        // Generar partículas flotantes
+        function createParticles() {
+            const container = document.getElementById('particles');
+            if (!container) return;
+            for (let i = 0; i < 60; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+                const size = Math.random() * 6 + 2;
+                particle.style.width = size + 'px';
+                particle.style.height = size + 'px';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDuration = Math.random() * 12 + 4 + 's';
+                particle.style.animationDelay = Math.random() * 6 + 's';
+                particle.style.background = `rgba(${100 + Math.random() * 155}, ${150 + Math.random() * 105}, 255, ${0.3 + Math.random() * 0.5})`;
+                container.appendChild(particle);
+            }
+        }
+
+        // Iniciar todo
+        connectWebSocket();
+        window.addEventListener('load', createParticles);
+    </script>
+</body>
+</html>

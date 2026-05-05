@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login / Registro - Arena Multijugador</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="config.js"></script>
+</head>
+<body>
+    <h1 data-text="ARENA MULTIJUGADOR">ARENA MULTIJUGADOR</h1>
+    <div class="form-container">
+        <!-- Registro -->
+        <div class="form">
+            <h2>REGISTRO</h2>
+            <input type="text" id="regUsername" placeholder="Nombre de guerrero" autocomplete="off">
+            <input type="password" id="regPassword" placeholder="Contraseña">
+            <button id="registerBtn">Crear cuenta</button>
+            <div id="regMessage" class="error"></div>
+        </div>
+
+        <!-- Login -->
+        <div class="form">
+            <h2>INICIAR SESIÓN</h2>
+            <input type="text" id="loginUsername" placeholder="Nombre de guerrero" autocomplete="off">
+            <input type="password" id="loginPassword" placeholder="Contraseña">
+            <button id="loginBtn">Entrar al lobby</button>
+            <div id="loginMessage" class="error"></div>
+        </div>
+    </div>
+
+    <!-- Partículas de fondo -->
+    <div class="particles" id="particles"></div>
+
+    <script>
+        const API_URL = window.APP_CONFIG.AUTH_API_URL;
+
+        // --- Registro ---
+        const regBtn = document.getElementById('registerBtn');
+        const regUsername = document.getElementById('regUsername');
+        const regPassword = document.getElementById('regPassword');
+        const regMsg = document.getElementById('regMessage');
+
+        regBtn.addEventListener('click', async () => {
+            const username = regUsername.value.trim();
+            const password = regPassword.value.trim();
+
+            if (!username || !password) {
+                regMsg.textContent = '❌ Usuario y contraseña requeridos';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (res.status === 201) {
+                    regMsg.className = 'success';
+                    regMsg.textContent = '✅ ¡Guerrero registrado! Ahora inicia sesión.';
+                    regUsername.value = '';
+                    regPassword.value = '';
+                } else if (res.status === 409) {
+                    regMsg.className = 'error';
+                    regMsg.textContent = '⚠️ Ese nombre ya existe en el campo de batalla';
+                } else {
+                    const data = await res.json();
+                    regMsg.className = 'error';
+                    regMsg.textContent = data.error || 'Error en el registro';
+                }
+            } catch (err) {
+                regMsg.className = 'error';
+                regMsg.textContent = '💀 Error de conexión con el servidor de autenticación';
+                console.error(err);
+            }
+        });
+
+        // --- Login ---
+        const loginBtn = document.getElementById('loginBtn');
+        const loginUsername = document.getElementById('loginUsername');
+        const loginPassword = document.getElementById('loginPassword');
+        const loginMsg = document.getElementById('loginMessage');
+
+        loginBtn.addEventListener('click', async () => {
+            const username = loginUsername.value.trim();
+            const password = loginPassword.value.trim();
+
+            if (!username || !password) {
+                loginMsg.textContent = '❌ Usuario y contraseña requeridos';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (res.status === 200) {
+                    const data = await res.json();
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('username', data.username);
+                    window.location.href = 'lobby.html';
+                } else if (res.status === 401) {
+                    loginMsg.textContent = '🔐 Credenciales inválidas, guerrero';
+                } else {
+                    const data = await res.json();
+                    loginMsg.textContent = data.error || 'Error en el login';
+                }
+            } catch (err) {
+                loginMsg.textContent = '💀 Error de conexión con el servidor de autenticación';
+                console.error(err);
+            }
+        });
+
+        // Generar partículas flotantes
+        function createParticles() {
+            const container = document.getElementById('particles');
+            if (!container) return;
+            for (let i = 0; i < 60; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+                const size = Math.random() * 6 + 2;
+                particle.style.width = size + 'px';
+                particle.style.height = size + 'px';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDuration = Math.random() * 12 + 4 + 's';
+                particle.style.animationDelay = Math.random() * 6 + 's';
+                particle.style.background = `rgba(${100 + Math.random() * 155}, ${150 + Math.random() * 105}, 255, ${0.3 + Math.random() * 0.5})`;
+                container.appendChild(particle);
+            }
+        }
+        window.addEventListener('load', createParticles);
+    </script>
+</body>
+</html>
