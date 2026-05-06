@@ -5,7 +5,7 @@
 
     // Verificar sesión activa
     if (!token) {
-        showModal('⚠️ Sin Sesión', 'No hay sesión activa. Redirigiendo al login...');
+        showModal('Sin Sesión', 'No hay sesión activa. Redirigiendo al login...');
         return;
     }
 
@@ -20,7 +20,7 @@
         ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
-            console.log('✅ WebSocket conectado al coordinador');
+            console.log('WebSocket conectado al coordinador');
         };
 
         ws.onmessage = (event) => {
@@ -39,7 +39,7 @@
             localStorage.removeItem('token');
             localStorage.removeItem('username');
 
-            showModal('⚠️ Conexión Perdida', 'Se ha perdido la conexión con el servidor. El token es inválido o el servidor está inactivo.');
+            showModal('Conexión Perdida', 'Se ha perdido la conexión con el servidor. El token es inválido o el servidor está inactivo.');
         };
 
         ws.onerror = (error) => {
@@ -52,13 +52,13 @@
     function renderPlayers(players) {
         const listEl = document.getElementById('playersList');
         if (!players || players.length === 0) {
-            listEl.innerHTML = '<li>🌀 No hay jugadores en línea</li>';
+            listEl.innerHTML = '<li>No hay jugadores en línea</li>';
             return;
         }
         listEl.innerHTML = players.map(p => `
             <li>
-                🎮 ${escapeHtml(p.username)} 
-                <span style="margin-left: auto; font-size: 0.75rem; color: #0ff;">⚡ ID: ${p.userId}</span>
+                ${escapeHtml(p.username)} 
+                <span style="margin-left: auto; font-size: 0.75rem; color: #0ff;">ID: ${p.userId}</span>
             </li>
         `).join('');
     }

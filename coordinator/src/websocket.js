@@ -30,7 +30,7 @@ function setupWebSocket(server) {
   // Manejar conexiones ya autenticadas
   wss.on('connection', (ws, req, user) => {
     const { userId, username } = user;
-    console.log(`[WS] ✅ Conectado: "${username}" (${userId})`);
+    console.log(`[WS] Conectado: "${username}" (${userId})`);
 
     // Registrar jugador (cierra conexión previa si existe)
     addPlayer(userId, username, ws);
@@ -49,7 +49,7 @@ function setupWebSocket(server) {
 
     // Desconexión: limpiar y notificar
     ws.on('close', (code, reason) => {
-      console.log(`[WS] ❌ Desconectado: "${username}" (${userId}) — Código: ${code}`);
+      console.log(`[WS] Desconectado: "${username}" (${userId}) — Código: ${code}`);
       removePlayer(userId);
       broadcastPlayerList();
     });

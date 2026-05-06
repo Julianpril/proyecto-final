@@ -144,7 +144,7 @@ cd coordinator && npm install && cd ..
 
 ### Paso 3: Configurar Variables de Entorno
 
-Crear un archivo `.env` en `auth-service/` y `coordinator/` con el **mismo** JWT_SECRET:
+Crear un archivo `.env` en cada una de las carpetas de los servicios:
 
 **auth-service/.env**
 ```env
@@ -158,9 +158,17 @@ PORT=5000
 JWT_SECRET=mi_secreto_super_seguro
 ```
 
+**client/.env**
+```env
+AUTH_API_URL=http://localhost:4000
+COORDINATOR_WS_URL=ws://localhost:5000
+```
+
 > **IMPORTANTE:** Si las claves JWT son diferentes entre servicios, el Coordinator rechazara todos los tokens emitidos por Auth (`invalid signature`).
 
 ### Paso 4: Iniciar los 3 Servicios
+
+Al iniciar el cliente, el sistema automaticamente generara el archivo `client/js/config.js` basado en los valores de `client/.env`.
 
 **Opcion A - Script automatico (Windows):**
 ```bash

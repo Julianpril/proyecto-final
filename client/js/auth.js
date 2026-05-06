@@ -14,7 +14,7 @@
 
         if (!username || !password) {
             regMsg.className = 'error';
-            regMsg.textContent = '❌ Usuario y contraseña requeridos';
+            regMsg.textContent = 'Usuario y contraseña requeridos';
             return;
         }
 
@@ -30,12 +30,12 @@
 
             if (res.status === 201) {
                 regMsg.className = 'success';
-                regMsg.textContent = '✅ ¡Guerrero registrado! Ahora inicia sesión.';
+                regMsg.textContent = '¡Guerrero registrado! Ahora inicia sesión.';
                 regUsername.value = '';
                 regPassword.value = '';
             } else if (res.status === 409) {
                 regMsg.className = 'error';
-                regMsg.textContent = '⚠️ Ese nombre ya existe en el campo de batalla';
+                regMsg.textContent = 'Ese nombre ya existe en el campo de batalla';
             } else {
                 const data = await res.json();
                 regMsg.className = 'error';
@@ -43,7 +43,7 @@
             }
         } catch (err) {
             regMsg.className = 'error';
-            regMsg.textContent = '💀 Error de conexión con el servidor de autenticación';
+            regMsg.textContent = 'Error de conexión con el servidor de autenticación';
             console.error(err);
         } finally {
             regBtn.disabled = false;
@@ -63,7 +63,7 @@
 
         if (!username || !password) {
             loginMsg.className = 'error';
-            loginMsg.textContent = '❌ Usuario y contraseña requeridos';
+            loginMsg.textContent = 'Usuario y contraseña requeridos';
             return;
         }
 
@@ -84,7 +84,7 @@
                 window.location.href = 'lobby.html';
             } else if (res.status === 401) {
                 loginMsg.className = 'error';
-                loginMsg.textContent = '🔐 Credenciales inválidas, guerrero';
+                loginMsg.textContent = 'Credenciales inválidas, guerrero';
             } else {
                 const data = await res.json();
                 loginMsg.className = 'error';
@@ -92,7 +92,7 @@
             }
         } catch (err) {
             loginMsg.className = 'error';
-            loginMsg.textContent = '💀 Error de conexión con el servidor de autenticación';
+            loginMsg.textContent = 'Error de conexión con el servidor de autenticación';
             console.error(err);
         } finally {
             loginBtn.disabled = false;
