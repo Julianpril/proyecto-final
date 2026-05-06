@@ -1,0 +1,15 @@
+{
+  "name": "proyecto-final",
+  "version": "1.0.0",
+  "description": "Sistema distribuido para un videojuego multijugador",
+  "scripts": {
+    "start": "concurrently \"npm run start:auth\" \"npm run start:coord\" \"npm run start:client\"",
+    "start:auth": "cd auth-service && node index.js",
+    "start:coord": "cd coordinator && node index.js",
+    "start:client": "npx -y serve client -p 3000",
+    "install:all": "cd auth-service && npm install && cd ../coordinator && npm install"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,4 +1,4 @@
-// client/config.js
+// js/config.js - Configuración centralizada de URLs
 window.APP_CONFIG = {
     // Auth service (cambiar a URL de ngrok cuando se exponga)
     AUTH_API_URL: 'http://localhost:4000',
