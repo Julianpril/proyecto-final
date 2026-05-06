@@ -25,6 +25,28 @@ CREATE TABLE IF NOT EXISTS users (
 )
 `);
 
+// Middleware para verificar el token
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Espera: "Bearer <token>"
+
+  if (!token) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'Token expirado' });
+      }
+      return res.status(403).json({ error: 'Token inválido' });
+    }
+
+    req.user = decoded;
+    next();
+  });
+}
+
 app.post('/register', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -84,7 +106,7 @@ app.post('/login', async (req, res) => {
         username: user.username
       },
       JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '10s' }
     );
 
     return res.status(200).json({
@@ -94,6 +116,11 @@ app.post('/login', async (req, res) => {
   } catch (error) {
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
+});
+
+// Ruta protegida de ejemplo
+app.get('/perfil', authenticateToken, (req, res) => {
+  return res.json({ message: `Hola, ${req.user.username}` });
 });
 
 app.listen(PORT, () => {
