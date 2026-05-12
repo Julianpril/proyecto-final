@@ -2,7 +2,6 @@
 function createParticles() {
     const container = document.getElementById('particles');
     if (!container) return;
-
     for (let i = 0; i < 60; i++) {
         const particle = document.createElement('div');
         particle.classList.add('particle');
@@ -16,5 +15,4 @@ function createParticles() {
         container.appendChild(particle);
     }
 }
-
 window.addEventListener('load', createParticles);
