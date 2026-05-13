@@ -21,6 +21,13 @@ const BCRYPT_ROUNDS = 10;
 app.use(cors());
 app.use(express.json());
 
+// Public config endpoint (safe to expose non-secret client IDs)
+app.get('/config', (req, res) => {
+  return res.json({
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || ''
+  });
+});
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -15,6 +15,8 @@ let game = null;
 let currentState = { players: [] };
 let world = null;
 
+window.lastState = currentState;
+
 function connect() {
     const wsUrl = `${window.APP_CONFIG.COORDINATOR_WS_URL}/connect?token=${encodeURIComponent(token)}`;
     ws = new WebSocket(wsUrl);
@@ -26,11 +28,11 @@ function connect() {
             const msg = JSON.parse(event.data);
             if (msg.type === 'welcome') {
                 world = msg.world;
-                canvas.width = world.width;
-                canvas.height = world.height;
+                // don't set canvas pixel size directly; createGame will map world->display
                 initGame(msg.you.userId);
             } else if (msg.type === 'state') {
                 currentState = { players: msg.players };
+                window.lastState = currentState;
             }
         } catch (err) {
             console.error('Error parseando WS', err);
@@ -51,6 +53,7 @@ function connect() {
 
 function initGame(localPlayerId) {
     if (game) game.destroy();
+    window.localPlayerId = localPlayerId;
     game = createGame({
         canvas,
         onIntent: (intent) => {
@@ -60,24 +63,30 @@ function initGame(localPlayerId) {
         },
         getRenderState: () => currentState,
         localPlayerId,
-        options: world ? {
+            options: world ? {
             worldWidth: world.width,
             worldHeight: world.height,
             playerRadius: world.playerRadius,
+            // display a larger square canvas as requested
+            displayWidth: 500,
+            displayHeight: 500
         } : {}
     });
     game.start();
 }
 
-// Feature extra: cambio de color
-function changeColor() {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    const randomColor = '#' + Math.floor(Math.random() * 16777215).toString(16);
-    ws.send(JSON.stringify({
-        type: 'extras_update',
-        extras: { color: randomColor }
-    }));
-    console.log('Enviado cambio de color:', randomColor);
+function setupColorPicker() {
+    const colorInput = document.getElementById('playerColor');
+    if (!colorInput) return;
+
+    colorInput.addEventListener('input', (event) => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+        ws.send(JSON.stringify({
+            type: 'extras_update',
+            extras: { color: event.target.value }
+        }));
+    });
 }
 
 // Modal (reutiliza el que tienes en lobby.html)
@@ -93,9 +102,6 @@ function showModal(title, message) {
     if (okBtn) okBtn.onclick = () => window.location.href = 'index.html';
 }
 
-// Botones
-const colorBtn = document.getElementById('colorBtn');
-if (colorBtn) colorBtn.addEventListener('click', changeColor);
 document.getElementById('logoutBtn').addEventListener('click', () => {
     if (ws) ws.close();
     if (game) game.destroy();
@@ -104,3 +110,4 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 });
 
 connect();
+setupColorPicker();

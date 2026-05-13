@@ -578,6 +578,35 @@ canvas {
     display: flex;
     gap: 1rem;
     justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.color-picker-label {
+    font-family: 'Orbitron', monospace;
+    color: #0ff;
+    letter-spacing: 1px;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.45);
+}
+
+.color-picker {
+    width: 72px;
+    height: 54px;
+    padding: 0;
+    border: 1px solid rgba(0, 255, 255, 0.35);
+    border-radius: 16px;
+    background: rgba(0, 0, 0, 0.45);
+    box-shadow: 0 0 14px rgba(0, 255, 255, 0.25);
+    cursor: pointer;
+}
+
+.color-picker::-webkit-color-swatch-wrapper {
+    padding: 6px;
+}
+
+.color-picker::-webkit-color-swatch {
+    border: none;
+    border-radius: 10px;
 }
 
 .controls button {
