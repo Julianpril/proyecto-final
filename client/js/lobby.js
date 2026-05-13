@@ -1,108 +1,113 @@
-// js/lobby.js - Lógica del lobby y conexión WebSocket
-(function () {
-    const token = localStorage.getItem('token');
-    const username = localStorage.getItem('username');
+// js/lobby.js - Versión Taller 5 (canvas, movimiento, extras)
+import { createGame } from './game.js';
 
-    // Verificar sesión activa
-    if (!token) {
-        showModal('Sin Sesión', 'No hay sesión activa. Redirigiendo al login...');
-        return;
-    }
+const token = localStorage.getItem('token');
+const username = localStorage.getItem('username');
+if (!token) {
+    alert('No hay sesión activa');
+    window.location.href = 'index.html';
+}
+document.getElementById('currentUser').textContent = username || 'Invitado';
 
-    document.getElementById('currentUser').textContent = username || 'Invitado';
+const canvas = document.getElementById('gameCanvas');
+let ws = null;
+let game = null;
+let currentState = { players: [] };
+let world = null;
 
-    const WS_URL = window.APP_CONFIG.COORDINATOR_WS_URL;
-    let ws = null;
+window.lastState = currentState;
 
-    // --- Conexión WebSocket ---
-    function connectWebSocket() {
-        const wsUrl = `${WS_URL}/connect?token=${encodeURIComponent(token)}`;
-        ws = new WebSocket(wsUrl);
+function connect() {
+    const wsUrl = `${window.APP_CONFIG.COORDINATOR_WS_URL}/connect?token=${encodeURIComponent(token)}`;
+    ws = new WebSocket(wsUrl);
 
-        ws.onopen = () => {
-            console.log('WebSocket conectado al coordinador');
-        };
+    ws.onopen = () => console.log('✅ Conectado al coordinador');
 
-        ws.onmessage = (event) => {
-            try {
-                const msg = JSON.parse(event.data);
-                if (msg.type === 'players_update') {
-                    renderPlayers(msg.players);
-                }
-            } catch (err) {
-                console.error('Error parseando mensaje WS:', err);
+    ws.onmessage = (event) => {
+        try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'welcome') {
+                world = msg.world;
+                // don't set canvas pixel size directly; createGame will map world->display
+                initGame(msg.you.userId);
+            } else if (msg.type === 'state') {
+                currentState = { players: msg.players };
+                window.lastState = currentState;
             }
-        };
-
-        ws.onclose = (event) => {
-            console.log(`WebSocket cerrado: código ${event.code} - ${event.reason}`);
-            localStorage.removeItem('token');
-            localStorage.removeItem('username');
-
-            showModal('Conexión Perdida', 'Se ha perdido la conexión con el servidor. El token es inválido o el servidor está inactivo.');
-        };
-
-        ws.onerror = (error) => {
-            console.error('Error en WebSocket:', error);
-            ws.close();
-        };
-    }
-
-    // --- Renderizar jugadores ---
-    function renderPlayers(players) {
-        const listEl = document.getElementById('playersList');
-        if (!players || players.length === 0) {
-            listEl.innerHTML = '<li>No hay jugadores en línea</li>';
-            return;
+        } catch (err) {
+            console.error('Error parseando WS', err);
         }
-        listEl.innerHTML = players.map(p => `
-            <li>
-                ${escapeHtml(p.username)} 
-                <span style="margin-left: auto; font-size: 0.75rem; color: #0ff;">ID: ${p.userId}</span>
-            </li>
-        `).join('');
-    }
+    };
 
-    // --- Escapar HTML para prevenir XSS ---
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, function (m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
-    }
+    ws.onclose = () => {
+        if (game) game.destroy();
+        localStorage.clear();
+        showModal('Conexión perdida', 'El servidor cerró la conexión.');
+    };
 
-    // --- Modal de desconexión ---
-    function showModal(title, message) {
-        const modal = document.getElementById('disconnectModal');
-        const modalTitle = modal.querySelector('h3');
-        const modalMsg = modal.querySelector('p');
-        modalTitle.textContent = title;
-        modalMsg.textContent = message;
-        modal.style.display = 'flex';
-    }
+    ws.onerror = (err) => {
+        console.error('WS error', err);
+        ws.close();
+    };
+}
 
-    // --- Botón del modal ---
-    const modalOkBtn = document.getElementById('modalOkBtn');
-    if (modalOkBtn) {
-        modalOkBtn.addEventListener('click', () => {
-            window.location.href = 'index.html';
-        });
-    }
-
-    // --- Cerrar sesión ---
-    const logoutBtn = document.getElementById('logoutBtn');
-    logoutBtn.addEventListener('click', () => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.close();
-        }
-        localStorage.removeItem('token');
-        localStorage.removeItem('username');
-        window.location.href = 'index.html';
+function initGame(localPlayerId) {
+    if (game) game.destroy();
+    window.localPlayerId = localPlayerId;
+    game = createGame({
+        canvas,
+        onIntent: (intent) => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'intent', intent }));
+            }
+        },
+        getRenderState: () => currentState,
+        localPlayerId,
+            options: world ? {
+            worldWidth: world.width,
+            worldHeight: world.height,
+            playerRadius: world.playerRadius,
+            // display a larger square canvas as requested
+            displayWidth: 500,
+            displayHeight: 500
+        } : {}
     });
+    game.start();
+}
 
-    // Iniciar conexión WebSocket
-    connectWebSocket();
-})();
+function setupColorPicker() {
+    const colorInput = document.getElementById('playerColor');
+    if (!colorInput) return;
+
+    colorInput.addEventListener('input', (event) => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+        ws.send(JSON.stringify({
+            type: 'extras_update',
+            extras: { color: event.target.value }
+        }));
+    });
+}
+
+// Modal (reutiliza el que tienes en lobby.html)
+function showModal(title, message) {
+    const modal = document.getElementById('disconnectModal');
+    if (!modal) return;
+    const titleEl = modal.querySelector('h3');
+    const msgEl = modal.querySelector('p');
+    if (titleEl) titleEl.textContent = title;
+    if (msgEl) msgEl.textContent = message;
+    modal.style.display = 'flex';
+    const okBtn = document.getElementById('modalOkBtn');
+    if (okBtn) okBtn.onclick = () => window.location.href = 'index.html';
+}
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+    if (ws) ws.close();
+    if (game) game.destroy();
+    localStorage.clear();
+    window.location.href = 'index.html';
+});
+
+connect();
+setupColorPicker();

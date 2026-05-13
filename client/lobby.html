@@ -3,29 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lobby - Sala de Juego</title>
-    <meta name="description" content="Sala de juego multijugador en tiempo real. Ve quién está conectado.">
+    <title>Juego - Arena Multijugador</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="js/config.js"></script>
 </head>
-<body>
+<body class="lobby-page">
     <h1 data-text="SALA DE JUEGO">SALA DE JUEGO</h1>
-
     <div class="status">
-        Conectado como: <strong id="currentUser">---</strong>
+        🎮 Conectado como: <strong id="currentUser">---</strong>
     </div>
-
-    <h2>JUGADORES EN LÍNEA</h2>
-    <ul id="playersList">
-        <li>Cargando guerreros...</li>
-    </ul>
-
-    <button id="logoutBtn" class="logout-btn">CERRAR SESIÓN</button>
-
-    <!-- Partículas de fondo -->
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    <div class="controls">
+        <label class="color-picker-label" for="playerColor">🎨 Color del jugador</label>
+        <input id="playerColor" class="color-picker" type="color" value="#ff5500" />
+        <button id="logoutBtn" class="logout-btn">🚪 CERRAR SESIÓN</button>
+    </div>
     <div class="particles" id="particles"></div>
 
-    <!-- Modal de Desconexión -->
+    <!-- Modal de desconexión -->
     <div id="disconnectModal" class="modal-overlay" style="display: none;">
         <div class="modal-content">
             <h3>Conexión Perdida</h3>
@@ -35,6 +32,6 @@
     </div>
 
     <script src="js/particles.js"></script>
-    <script src="js/lobby.js"></script>
+    <script type="module" src="js/lobby.js"></script>
 </body>
 </html>

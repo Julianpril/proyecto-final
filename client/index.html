@@ -7,27 +7,45 @@
     <meta name="description" content="Inicia sesión o regístrate para entrar al lobby multijugador en tiempo real.">
     <link rel="stylesheet" href="css/style.css">
     <script src="js/config.js"></script>
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <h1 data-text="ARENA MULTIJUGADOR">ARENA MULTIJUGADOR</h1>
 
     <div class="form-container">
-        <!-- Registro -->
+        <!-- Registro local -->
         <div class="form">
-            <h2>REGISTRO</h2>
+            <h2>⚔️ REGISTRO</h2>
             <input type="text" id="regUsername" placeholder="Nombre de guerrero" autocomplete="off">
             <input type="password" id="regPassword" placeholder="Contraseña">
             <button id="registerBtn">Crear cuenta</button>
             <div id="regMessage" class="error"></div>
         </div>
 
-        <!-- Login -->
+        <!-- Login local + Google -->
         <div class="form">
-            <h2>INICIAR SESIÓN</h2>
+            <h2>🎮 INICIAR SESIÓN</h2>
             <input type="text" id="loginUsername" placeholder="Nombre de guerrero" autocomplete="off">
             <input type="password" id="loginPassword" placeholder="Contraseña">
             <button id="loginBtn">Entrar al lobby</button>
             <div id="loginMessage" class="error"></div>
+
+            <!-- Botón de Google -->
+            <div id="g_id_onload"
+                 data-client_id=""
+                 data-callback="handleGoogleLogin"
+                 data-auto_prompt="false"
+                 style="margin-top: 1rem;">
+            </div>
+            <div class="g_id_signin"
+                 data-type="standard"
+                 data-theme="outline"
+                 data-size="large"
+                 data-text="signin_with"
+                 data-shape="rectangular"
+                 data-logo_alignment="left">
+            </div>
         </div>
     </div>
 

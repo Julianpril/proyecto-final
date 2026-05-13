@@ -552,3 +552,94 @@ button:disabled {
 button:disabled::after {
     display: none;
 }
+
+/* ========== ESTILOS ESPECÍFICOS PARA EL LOBBY (juego) ========== */
+body.lobby-page {
+    justify-content: flex-start;
+    padding-top: 1rem;
+}
+
+.game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 1rem 0;
+}
+
+canvas {
+    border: 3px solid cyan;
+    border-radius: 16px;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    background-color: #0a0c15;
+}
+
+.controls {
+    margin-top: 1rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.color-picker-label {
+    font-family: 'Orbitron', monospace;
+    color: #0ff;
+    letter-spacing: 1px;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.45);
+}
+
+.color-picker {
+    width: 72px;
+    height: 54px;
+    padding: 0;
+    border: 1px solid rgba(0, 255, 255, 0.35);
+    border-radius: 16px;
+    background: rgba(0, 0, 0, 0.45);
+    box-shadow: 0 0 14px rgba(0, 255, 255, 0.25);
+    cursor: pointer;
+}
+
+.color-picker::-webkit-color-swatch-wrapper {
+    padding: 6px;
+}
+
+.color-picker::-webkit-color-swatch {
+    border: none;
+    border-radius: 10px;
+}
+
+.controls button {
+    padding: 0.5rem 1rem;
+    background: #1a2a3a;
+    border: 1px solid cyan;
+    color: cyan;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.controls button:hover {
+    background: cyan;
+    color: black;
+    box-shadow: 0 0 10px cyan;
+}
+
+.controls .logout-btn {
+    background: #3a0a1a;
+    border-color: magenta;
+    color: magenta;
+}
+
+.controls .logout-btn:hover {
+    background: magenta;
+    color: black;
+    box-shadow: 0 0 10px magenta;
+}
+
+/* Ocultar la lista antigua (por si aparece) */
+#playersList {
+    display: none;
+}
