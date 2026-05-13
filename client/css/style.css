@@ -643,3 +643,98 @@ canvas {
 #playersList {
     display: none;
 }
+
+/* ========== GAME WRAPPER (canvas + feed side by side) ========== */
+.game-wrapper {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 0.5rem 0;
+}
+
+/* ========== COLLECTION FEED ========== */
+.collect-feed {
+    width: 220px;
+    max-height: 300px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.feed-item {
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(0, 255, 255, 0.25);
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-family: 'Exo 2', monospace;
+    font-size: 0.82rem;
+    animation: feedSlideIn 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+    transition: opacity 0.5s, transform 0.5s;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.15);
+}
+
+.feed-item strong {
+    color: inherit;
+}
+
+.feed-item-fade {
+    opacity: 0;
+    transform: translateX(30px);
+}
+
+@keyframes feedSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-15px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ========== GAME HINT ========== */
+.game-hint {
+    font-family: 'Exo 2', monospace;
+    font-size: 0.85rem;
+    color: rgba(176, 240, 255, 0.6);
+    text-align: center;
+    margin: 0.5rem 0 0;
+    letter-spacing: 0.5px;
+}
+
+.game-hint kbd {
+    display: inline-block;
+    background: rgba(0, 255, 255, 0.12);
+    border: 1px solid rgba(0, 255, 255, 0.35);
+    border-radius: 5px;
+    padding: 1px 7px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.78rem;
+    color: #0ff;
+    margin: 0 2px;
+    box-shadow: 0 2px 0 rgba(0, 255, 255, 0.2);
+}
+
+/* ========== RESPONSIVE - FEED ========== */
+@media (max-width: 800px) {
+    .game-wrapper {
+        flex-direction: column;
+        align-items: center;
+    }
+    .collect-feed {
+        width: 100%;
+        max-width: 500px;
+        flex-direction: row;
+        overflow-x: auto;
+        max-height: unset;
+    }
+    .feed-item {
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+}

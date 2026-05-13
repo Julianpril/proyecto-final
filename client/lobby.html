@@ -12,9 +12,13 @@
     <div class="status">
         🎮 Conectado como: <strong id="currentUser">---</strong>
     </div>
-    <div class="game-container">
-        <canvas id="gameCanvas"></canvas>
+    <div class="game-wrapper">
+        <div class="game-container">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+        <div id="collectFeed" class="collect-feed"></div>
     </div>
+    <p class="game-hint">🕹️ Usa <kbd>WASD</kbd> o <kbd>↑←↓→</kbd> para moverte · Recoge los orbes para sumar puntos</p>
     <div class="controls">
         <label class="color-picker-label" for="playerColor">🎨 Color del jugador</label>
         <input id="playerColor" class="color-picker" type="color" value="#ff5500" />

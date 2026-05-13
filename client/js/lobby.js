@@ -1,4 +1,4 @@
-// js/lobby.js - Versión Taller 5 (canvas, movimiento, extras)
+// js/lobby.js - Versión Taller 5 (canvas, movimiento, extras, orbs)
 import { createGame } from './game.js';
 
 const token = localStorage.getItem('token');
@@ -12,10 +12,31 @@ document.getElementById('currentUser').textContent = username || 'Invitado';
 const canvas = document.getElementById('gameCanvas');
 let ws = null;
 let game = null;
-let currentState = { players: [] };
+let currentState = { players: [], orbs: [], scores: [] };
 let world = null;
 
 window.lastState = currentState;
+
+// Collection feed (on-screen notifications)
+const feedContainer = document.getElementById('collectFeed');
+function showCollectionFeed(collectorName, orbType, points, isSelf) {
+    if (!feedContainer) return;
+    const emojis = { gold: '⭐', diamond: '💎', ruby: '💠' };
+    const colors = { gold: '#FFD700', diamond: '#00FFFF', ruby: '#FF3366' };
+    const div = document.createElement('div');
+    div.className = 'feed-item';
+    div.style.color = colors[orbType] || '#fff';
+    div.innerHTML = `${emojis[orbType] || '⭐'} <strong>${isSelf ? '¡Tú' : collectorName}</strong> ${isSelf ? 'recogiste' : 'recogió'} +${points}`;
+    feedContainer.prepend(div);
+    // Remove old items
+    while (feedContainer.children.length > 5) {
+        feedContainer.removeChild(feedContainer.lastChild);
+    }
+    setTimeout(() => {
+        div.classList.add('feed-item-fade');
+        setTimeout(() => div.remove(), 500);
+    }, 3000);
+}
 
 function connect() {
     const wsUrl = `${window.APP_CONFIG.COORDINATOR_WS_URL}/connect?token=${encodeURIComponent(token)}`;
@@ -28,11 +49,26 @@ function connect() {
             const msg = JSON.parse(event.data);
             if (msg.type === 'welcome') {
                 world = msg.world;
-                // don't set canvas pixel size directly; createGame will map world->display
                 initGame(msg.you.userId);
             } else if (msg.type === 'state') {
-                currentState = { players: msg.players };
+                currentState = {
+                    players: msg.players,
+                    orbs: msg.orbs || [],
+                    scores: msg.scores || [],
+                };
                 window.lastState = currentState;
+            } else if (msg.type === 'orb_collected') {
+                const isSelf = msg.collector.userId === window.localPlayerId;
+                showCollectionFeed(msg.collector.username, msg.orbType, msg.points, isSelf);
+                // Add floating text in the game at the orb's approximate location
+                // (we find the collector's position as proxy)
+                if (game && game.addFloatingText) {
+                    const player = currentState.players.find(p => p.userId === msg.collector.userId);
+                    if (player) {
+                        const colors = { gold: '#FFD700', diamond: '#00FFFF', ruby: '#FF3366' };
+                        game.addFloatingText(player.x, player.y, `+${msg.points}`, colors[msg.orbType] || '#FFD700');
+                    }
+                }
             }
         } catch (err) {
             console.error('Error parseando WS', err);
@@ -67,6 +103,7 @@ function initGame(localPlayerId) {
             worldWidth: world.width,
             worldHeight: world.height,
             playerRadius: world.playerRadius,
+            orbRadius: world.orbRadius || 8,
             // display a larger square canvas as requested
             displayWidth: 500,
             displayHeight: 500

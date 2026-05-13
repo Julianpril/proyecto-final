@@ -219,8 +219,7 @@ app.get('/perfil', authenticateToken, (req, res) => {
 });
 
 
-// GOOGLE AUTH
-
+// Login con Google
 app.post('/auth/google', async (req, res) => {
 
   try {
@@ -236,22 +235,24 @@ app.post('/auth/google', async (req, res) => {
 
     let payload;
 
+    // Verificar que el token sea real con Google
     try {
 
       const ticket = await googleClient.verifyIdToken({
         idToken,
-        audience: GOOGLE_CLIENT_ID
+        audience: GOOGLE_CLIENT_ID // que sea para nuestra app
       });
 
       payload = ticket.getPayload();
 
     } catch (err) {
-
+      // Token falso o expirado
       return res.status(401).json({
         error: 'invalid_id_token'
       });
     }
 
+    // Solo aceptar cuentas con email verificado
     if (!payload.email_verified) {
 
       return res.status(401).json({
@@ -290,7 +291,7 @@ app.post('/auth/google', async (req, res) => {
       });
     }
 
-    // Primer login Google
+    // Si nunca ha entrado con Google, pedirle un nombre de usuario
     if (!username) {
 
       return res.status(409).json({

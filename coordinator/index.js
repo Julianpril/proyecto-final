@@ -15,6 +15,21 @@ const WORLD_WIDTH = 1600;
 const WORLD_HEIGHT = 900;
 const TICK_MS = 1000 / TICK_RATE;
 
+// === Orbs config ===
+const MAX_ORBS = 8;
+const ORB_RADIUS = 12;
+const ORB_COLLECT_DISTANCE = PLAYER_RADIUS + ORB_RADIUS + 4;
+const ORB_RESPAWN_MS = 3000;
+const ORB_TYPES = [
+  { type: 'gold',    points: 1, color: '#FFD700', probability: 0.60 },
+  { type: 'diamond', points: 3, color: '#00FFFF', probability: 0.25 },
+  { type: 'ruby',    points: 5, color: '#FF3366', probability: 0.15 },
+];
+
+const orbs = new Map();
+let nextOrbId = 1;
+const scores = new Map();
+
 if (!JWT_SECRET) {
   console.error('[CONFIG] JWT_SECRET no definido en .env');
   process.exit(1);
@@ -31,6 +46,7 @@ function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+// Solo deja pasar -1, 0 o 1. Si mandan basura, se ignora
 function sanitizeAxis(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
@@ -40,16 +56,98 @@ function sanitizeAxis(value) {
   return Math.sign(numeric);
 }
 
-function createSpawnPosition() {
-  const minX = PLAYER_RADIUS;
-  const maxX = Math.max(PLAYER_RADIUS, WORLD_WIDTH - PLAYER_RADIUS);
-  const minY = PLAYER_RADIUS;
-  const maxY = Math.max(PLAYER_RADIUS, WORLD_HEIGHT - PLAYER_RADIUS);
+function createSpawnPosition(radius) {
+  radius = radius || PLAYER_RADIUS;
+  const minX = radius;
+  const maxX = Math.max(radius, WORLD_WIDTH - radius);
+  const minY = radius;
+  const maxY = Math.max(radius, WORLD_HEIGHT - radius);
 
   return {
     x: minX + Math.random() * Math.max(0, maxX - minX),
     y: minY + Math.random() * Math.max(0, maxY - minY),
   };
+}
+
+// === Orb management ===
+function pickOrbType() {
+  const r = Math.random();
+  let cumulative = 0;
+  for (const t of ORB_TYPES) {
+    cumulative += t.probability;
+    if (r <= cumulative) return t;
+  }
+  return ORB_TYPES[0];
+}
+
+function spawnOrb() {
+  if (orbs.size >= MAX_ORBS) return;
+  const pos = createSpawnPosition(ORB_RADIUS);
+  const orbType = pickOrbType();
+  const id = nextOrbId++;
+  orbs.set(id, {
+    id,
+    x: pos.x,
+    y: pos.y,
+    type: orbType.type,
+    points: orbType.points,
+    color: orbType.color,
+    spawnedAt: Date.now(),
+  });
+}
+
+function initOrbs() {
+  for (let i = 0; i < MAX_ORBS; i++) spawnOrb();
+}
+
+function orbsSnapshot() {
+  return Array.from(orbs.values()).map(o => ({
+    id: o.id, x: o.x, y: o.y,
+    type: o.type, points: o.points, color: o.color,
+  }));
+}
+
+function scoresSnapshot() {
+  const list = [];
+  for (const [userId, score] of scores.entries()) {
+    const p = players.get(userId);
+    if (p) list.push({ userId, username: p.username, score });
+  }
+  list.sort((a, b) => b.score - a.score);
+  return list;
+}
+
+function checkOrbCollisions() {
+  for (const [orbId, orb] of orbs) {
+    for (const [userId, player] of players) {
+      const dx = player.x - orb.x;
+      const dy = player.y - orb.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist <= ORB_COLLECT_DISTANCE) {
+        // Collect!
+        const prev = scores.get(userId) || 0;
+        scores.set(userId, prev + orb.points);
+        orbs.delete(orbId);
+
+        // Notify all players
+        const msg = JSON.stringify({
+          type: 'orb_collected',
+          orbId,
+          collector: { userId, username: player.username },
+          orbType: orb.type,
+          points: orb.points,
+          newScore: prev + orb.points,
+        });
+        for (const p of players.values()) {
+          if (p.socket.readyState === WebSocket.OPEN) p.socket.send(msg);
+        }
+
+        // Schedule respawn
+        setTimeout(() => spawnOrb(), ORB_RESPAWN_MS);
+        break;
+      }
+    }
+  }
 }
 
 function sendJson(socket, payload) {
@@ -106,6 +204,9 @@ function upsertPlayer(userId, username, socket) {
     socket,
     connectedAt: Date.now(),
   });
+
+  // Initialize score for this player if not already tracked
+  if (!scores.has(userId)) scores.set(userId, 0);
 }
 
 function removePlayer(userId, socket) {
@@ -120,6 +221,7 @@ function removePlayer(userId, socket) {
   }
 
   players.delete(userId);
+  scores.delete(userId);
 }
 
 function snapshot() {
@@ -139,6 +241,8 @@ function broadcastState(now) {
     type: 'state',
     t: now,
     players: snapshot(),
+    orbs: orbsSnapshot(),
+    scores: scoresSnapshot(),
   });
 
   for (const player of players.values()) {
@@ -150,9 +254,10 @@ function broadcastState(now) {
 
 let lastTickAt = Date.now();
 
+// Game loop: se ejecuta 20 veces por segundo
 function tick() {
   const now = Date.now();
-  const dt = (now - lastTickAt) / 1000;
+  const dt = (now - lastTickAt) / 1000; // tiempo desde el ultimo tick
   lastTickAt = now;
 
   for (const player of players.values()) {
@@ -163,12 +268,12 @@ function tick() {
     let velocityY = 0;
 
     if (magnitude > 0) {
-      // Teorema de Pitágoras: Math.hypot calcula la magnitud del vector de intención.
-      // Al normalizar el vector evitamos que el movimiento diagonal sea más rápido.
+      // Normalizar para que moverse en diagonal no sea mas rapido
       velocityX = (intentX / magnitude) * PLAYER_SPEED;
       velocityY = (intentY / magnitude) * PLAYER_SPEED;
     }
 
+    // No dejar que se salga del mapa
     player.x = Math.max(
       PLAYER_RADIUS,
       Math.min(WORLD_WIDTH - PLAYER_RADIUS, player.x + velocityX * dt)
@@ -179,6 +284,10 @@ function tick() {
     );
   }
 
+  // Detectar colisiones con orbs
+  checkOrbCollisions();
+
+  // Mandar el estado actualizado a todos los clientes
   broadcastState(now);
 }
 
@@ -205,6 +314,7 @@ wss.on('connection', (ws, req, user) => {
       height: WORLD_HEIGHT,
       playerRadius: PLAYER_RADIUS,
       tickRate: TICK_RATE,
+      orbRadius: ORB_RADIUS,
     },
   });
 
@@ -224,14 +334,12 @@ wss.on('connection', (ws, req, user) => {
       return;
     }
 
+    // El cliente manda hacia donde quiere moverse, no su posicion
     if (payload && payload.type === 'intent') {
-      // Accept several client formats:
-      // 1) { type:'intent', intent:{ x, y } }
-      // 2) { type:'intent', intent:{ dir:{ x, y } } } (PDF skeleton style)
-      // 3) { type:'intent', dir:{ x, y } } / { type:'intent', direction:{ x, y } }
       const candidate = payload.intent || payload.direction || payload.dir || payload;
       const nextIntent = (candidate && candidate.dir) ? candidate.dir : candidate;
 
+      // Limpiar los valores para que solo sean -1, 0 o 1
       const sanitizedX = sanitizeAxis(nextIntent && nextIntent.x);
       const sanitizedY = sanitizeAxis(nextIntent && nextIntent.y);
 
@@ -243,6 +351,7 @@ wss.on('connection', (ws, req, user) => {
       return;
     }
 
+    // Extras: datos adicionales como el color del jugador
     if (isPlainObject(payload) && payload.type === 'extras_update') {
       const extras = payload.extras;
 
@@ -250,8 +359,8 @@ wss.on('connection', (ws, req, user) => {
         return;
       }
 
+      // Limitar tamaño para que no manden datos enormes
       const serialized = JSON.stringify(extras);
-
       if (serialized.length > 1024) {
         return;
       }
@@ -300,6 +409,7 @@ app.get('/status', (req, res) => {
   });
 });
 
+initOrbs();
 setInterval(tick, TICK_MS);
 
 server.listen(PORT, () => {
