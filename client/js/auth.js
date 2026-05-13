@@ -1,6 +1,20 @@
 // js/auth.js - Lógica de registro e inicio de sesión (local + Google)
-(function () {
+(async function () {
     const API_URL = window.APP_CONFIG.AUTH_API_URL;
+
+    // Fetch runtime config from auth service (safe: only exposes public client id)
+    try {
+        const cfgRes = await fetch(`${API_URL}/config`);
+        if (cfgRes.ok) {
+            const cfg = await cfgRes.json();
+            window.APP_CONFIG.GOOGLE_CLIENT_ID = cfg.GOOGLE_CLIENT_ID || '';
+        } else {
+            console.warn('No se obtuvo /config desde auth-service:', cfgRes.status);
+        }
+    } catch (err) {
+        console.warn('Error al pedir /config:', err);
+    }
+
     const GOOGLE_CLIENT_ID = window.APP_CONFIG.GOOGLE_CLIENT_ID;
 
     // --- Configurar botón de Google ---
@@ -8,7 +22,7 @@
     if (googleDiv && GOOGLE_CLIENT_ID && GOOGLE_CLIENT_ID !== '') {
         googleDiv.setAttribute('data-client_id', GOOGLE_CLIENT_ID);
     } else {
-        console.warn('Google Client ID no configurado en config.js');
+        console.warn('Google Client ID no configurado en el servidor');
     }
 
     // --- Registro local ---

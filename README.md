@@ -255,6 +255,10 @@ Al conectar recibiras:
 
 ## Decisiones de Diseno
 
+### Fase de Operaciones y Features Extras
+
+La guia completa para Google Cloud Console, el feature extra de color de jugador y la demo de autoridad antitrampas esta en [docs/fase-operaciones-extras.md](docs/fase-operaciones-extras.md).
+
 ### 1. Validacion JWT en el Upgrade (no en Connection)
 
 La verificacion del token se realiza **interceptando el evento `upgrade`** del servidor HTTP, antes de que el handshake WebSocket se complete:
