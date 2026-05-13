@@ -2,17 +2,34 @@
 export function createGame(config) {
     const { canvas, onIntent, getRenderState, localPlayerId, options = {} } = config;
     const opts = {
-        worldWidth: 800,
-        worldHeight: 600,
-        playerRadius: 20,
+        worldWidth: 480,
+        worldHeight: 270,
+        playerRadius: 10,
         backgroundColor: '#0f1419',
         gridColor: '#1f2730',
-        gridSize: 40,
+        gridSize: 30,
         ...options
     };
-    canvas.width = opts.worldWidth;
-    canvas.height = opts.worldHeight;
+    // World logical size (units from server)
+    const worldW = opts.worldWidth;
+    const worldH = opts.worldHeight;
+
+    // Display size in CSS pixels (small square by default)
+    const displayW = options.displayWidth || 500;
+    const displayH = options.displayHeight || Math.round((displayW * worldH) / worldW);
+
+    // Support high-DPI displays while keeping canvas CSS size small
+    const dpr = window.devicePixelRatio || 1;
+    canvas.style.width = displayW + 'px';
+    canvas.style.height = displayH + 'px';
+    canvas.width = Math.floor(displayW * dpr);
+    canvas.height = Math.floor(displayH * dpr);
     const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    // Scale factors: map world coordinates -> display pixels
+    const scaleX = displayW / worldW;
+    const scaleY = displayH / worldH;
 
     const keys = new Set();
     let lastIntent = { x: 0, y: 0 };
@@ -65,19 +82,20 @@ export function createGame(config) {
 
     function drawBackground() {
         ctx.fillStyle = opts.backgroundColor;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, displayW, displayH);
         ctx.strokeStyle = opts.gridColor;
         ctx.lineWidth = 1;
-        for (let x = 0; x <= canvas.width; x += opts.gridSize) {
+        const gridPx = Math.max(6, opts.gridSize * scaleX);
+        for (let x = 0; x <= displayW; x += gridPx) {
             ctx.beginPath();
             ctx.moveTo(x, 0);
-            ctx.lineTo(x, canvas.height);
+            ctx.lineTo(x, displayH);
             ctx.stroke();
         }
-        for (let y = 0; y <= canvas.height; y += opts.gridSize) {
+        for (let y = 0; y <= displayH; y += gridPx) {
             ctx.beginPath();
             ctx.moveTo(0, y);
-            ctx.lineTo(canvas.width, y);
+            ctx.lineTo(displayW, y);
             ctx.stroke();
         }
     }
@@ -90,22 +108,26 @@ export function createGame(config) {
     function drawPlayer(p) {
         const isLocal = p.userId === localPlayerId;
         const color = (p.extras && p.extras.color) || colorFromId(p.userId);
+        const px = p.x * scaleX;
+        const py = p.y * scaleY;
+        const pr = Math.max(2, opts.playerRadius * ((scaleX + scaleY) / 2));
+
         ctx.beginPath();
-        ctx.arc(p.x, p.y, opts.playerRadius, 0, Math.PI * 2);
+        ctx.arc(px, py, pr, 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.fill();
-        ctx.lineWidth = isLocal ? 3 : 1.5;
+        ctx.lineWidth = isLocal ? 2 : 1;
         ctx.strokeStyle = isLocal ? '#ffffff' : '#000000';
         ctx.stroke();
-        ctx.font = '14px system-ui';
+        ctx.font = Math.max(8, 12 * ((scaleX + scaleY) / 2)) + 'px system-ui';
         ctx.fillStyle = '#e6e6e6';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         const text = p.username + (isLocal ? ' (tú)' : '');
         ctx.strokeStyle = '#000';
-        ctx.lineWidth = 3;
-        ctx.strokeText(text, p.x, p.y - opts.playerRadius - 4);
-        ctx.fillText(text, p.x, p.y - opts.playerRadius - 4);
+        ctx.lineWidth = 2;
+        ctx.strokeText(text, px, py - pr - 4);
+        ctx.fillText(text, px, py - pr - 4);
     }
 
     function render() {
