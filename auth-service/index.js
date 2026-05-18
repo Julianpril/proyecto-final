@@ -18,7 +18,21 @@ const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 const BCRYPT_ROUNDS = 10;
 
-app.use(cors());
+// Permitir cualquier origen (necesario con ngrok)
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
+
+// Fix para Google Sign-In con ngrok:
+// el popup de Google necesita postMessage de vuelta a la ventana padre,
+// pero ngrok agrega COOP: same-origin por defecto y lo bloquea.
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  next();
+});
+
 app.use(express.json());
 
 // Public config endpoint (safe to expose non-secret client IDs)
@@ -352,8 +366,73 @@ app.post('/auth/google', async (req, res) => {
   }
 });
 
+// ════════════════════════════════════════════════════════════════
+// MESH P2P DIRECTORY SERVICE (Fase 3)
+// ════════════════════════════════════════════════════════════════
+
+// Map<coordinatorId, { publicUrl, peerUrl, connectedPlayers, uptime, lastSeen }>
+const coordinators = new Map();
+const HEARTBEAT_TIMEOUT_MS = 6000;
+
+app.post('/heartbeat', (req, res) => {
+  const { coordinatorId, publicUrl, peerUrl, connectedPlayers, uptime } = req.body;
+  if (!coordinatorId) return res.status(400).json({ error: 'Missing coordinatorId' });
+
+  coordinators.set(coordinatorId, {
+    coordinatorId,
+    publicUrl,
+    peerUrl,
+    connectedPlayers,
+    uptime,
+    lastSeen: Date.now()
+  });
+
+  return res.status(200).json({ ok: true });
+});
+
+app.get('/coordinator', (req, res) => {
+  const now = Date.now();
+  let bestCoord = null;
+
+  for (const [id, data] of coordinators.entries()) {
+    if (now - data.lastSeen > HEARTBEAT_TIMEOUT_MS) {
+      coordinators.delete(id);
+      continue;
+    }
+    if (!bestCoord || data.connectedPlayers < bestCoord.connectedPlayers) {
+      bestCoord = data;
+    }
+  }
+
+  if (!bestCoord) {
+    return res.status(503).json({ error: 'no_coordinators_available' });
+  }
+
+  return res.json({
+    coordinatorId: bestCoord.coordinatorId,
+    publicUrl: bestCoord.publicUrl
+  });
+});
+
+app.get('/peers', (req, res) => {
+  const now = Date.now();
+  const peers = [];
+
+  for (const [id, data] of coordinators.entries()) {
+    if (now - data.lastSeen > HEARTBEAT_TIMEOUT_MS) {
+      coordinators.delete(id);
+    } else {
+      peers.push({
+        coordinatorId: data.coordinatorId,
+        publicUrl: data.publicUrl,
+        peerUrl: data.peerUrl
+      });
+    }
+  }
+
+  return res.json({ peers });
+});
 
 app.listen(PORT, () => {
-
   console.log(`Servidor en http://localhost:${PORT}`);
 });
