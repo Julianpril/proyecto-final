@@ -1,4 +1,4 @@
-// js/lobby.js - Versión Taller 5 (canvas, movimiento, extras, orbs)
+// js/lobby.js
 import { createGame } from './game.js';
 
 const token = localStorage.getItem('token');
@@ -104,9 +104,10 @@ function initGame(localPlayerId) {
             worldHeight: world.height,
             playerRadius: world.playerRadius,
             orbRadius: world.orbRadius || 8,
-            // display a larger square canvas as requested
+            // Respetar el aspect ratio del mundo para que la velocidad
+            // se vea igual en horizontal y vertical
             displayWidth: 500,
-            displayHeight: 500
+            displayHeight: Math.round(500 * world.height / world.width)
         } : {}
     });
     game.start();

@@ -5,7 +5,9 @@
     // Use GOOGLE_CLIENT_ID from config.js if available, otherwise try fetching from auth service
     if (!window.APP_CONFIG.GOOGLE_CLIENT_ID) {
         try {
-            const cfgRes = await fetch(`${API_URL}/config`);
+            // ngrok-skip-browser-warning evita que ngrok devuelva su página HTML
+            // de advertencia (que carece de CORS headers) en lugar de la respuesta real
+            const cfgRes = await fetch(`${API_URL}/config?ngrok-skip-browser-warning=true`);
             if (cfgRes.ok) {
                 const cfg = await cfgRes.json();
                 window.APP_CONFIG.GOOGLE_CLIENT_ID = cfg.GOOGLE_CLIENT_ID || '';
