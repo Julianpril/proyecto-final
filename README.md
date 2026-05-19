@@ -1,6 +1,6 @@
-# Proyecto Final – Sistemas Distribuidos (Parte II: Juego en Vivo y Google Auth)
+# Proyecto Final – Sistemas Distribuidos (Parte III: Mesh P2P y Tolerancia a Fallos)
 
-Sistema distribuido para un videojuego web multijugador en tiempo real. Esta entrega final cubre la implementación de un **servidor autoritativo**, un **game loop sincronizado**, **autenticación con Google** y **features replicados** (extras).
+Sistema distribuido para un videojuego web multijugador en tiempo real. Esta entrega final cubre la implementación de una **arquitectura Mesh P2P** con múltiples coordinadores, **client-side load balancing**, un directorio basado en **heartbeats** y tolerancia a fallos ante la desconexión de nodos.
 
 ---
 
@@ -8,62 +8,38 @@ Sistema distribuido para un videojuego web multijugador en tiempo real. Esta ent
 
 ```mermaid
 graph TD
-    subgraph Cliente Web - Puerto 3000
+    subgraph Cliente Web
         C[HTML5 Canvas + JS]
     end
 
-    subgraph Auth Service - Puerto 4000
+    subgraph Auth Service (Directorio)
         A[Express + SQLite]
-        G[Google OAuth 2.0]
+        D[Directorio de Nodos en Memoria]
     end
 
-    subgraph Coordinator - Puerto 5000
-        CO[WebSocket Server]
-        GL[Game Loop 20Hz]
-        M[(Estado en Memoria)]
+    subgraph Mesh de Coordinadores
+        CO1[Coordinator A]
+        CO2[Coordinator B]
+        CO3[Coordinator C]
+        CO1 <-->|WebSocket Peer| CO2
+        CO2 <-->|WebSocket Peer| CO3
+        CO1 <-->|WebSocket Peer| CO3
     end
 
-    C -- "Login Local / Google" --> A
-    A -- "ID Token Verify" --> G
-    A -- "{ token, username }" --> C
-    C -- "Intents {x, y}" --> CO
-    CO -- "Broadcast State" --> C
-    GL -- "Update Physics" --> M
+    C -- "GET /coordinator (Load Balancing)" --> A
+    A -- "Asigna nodo menos cargado" --> C
+    C -- "Conexión Jugador" --> CO1
+    CO1 -- "Heartbeat HTTP" --> A
+    CO2 -- "Heartbeat HTTP" --> A
+    CO3 -- "Heartbeat HTTP" --> A
 ```
 
-### Flujo de Comunicacion
+### Flujo de Conexión
 
-```mermaid
-sequenceDiagram
-    participant Cliente
-    participant Auth as Auth Service
-    participant Coord as Coordinator
-
-    Cliente->>Auth: POST /register { username, password }
-    Auth-->>Cliente: 201 { userId, username }
-
-    Cliente->>Auth: POST /login { username, password }
-    Auth-->>Cliente: 200 { token, username }
-
-    Note over Cliente: Guarda token en localStorage
-
-    Cliente->>Coord: WebSocket upgrade con ?token=JWT
-    Coord->>Coord: jwt.verify(token, JWT_SECRET)
-    alt Token valido
-        Coord-->>Cliente: Acepta conexion
-        Coord->>Coord: Agrega al Map y broadcast
-        Coord-->>Cliente: { type: players_update, players: [...] }
-    else Token invalido
-        Coord-->>Cliente: 401 Unauthorized / socket.destroy()
-    end
-
-    Note over Cliente: Otro jugador se conecta
-    Coord-->>Cliente: { type: players_update, players: [...] }
-
-    Note over Cliente: Un jugador cierra la pestana
-    Coord->>Coord: Elimina del Map y broadcast
-    Coord-->>Cliente: { type: players_update, players: [...] }
-```
+1. **Login:** El cliente se autentica localmente o por Google y obtiene un JWT.
+2. **Descubrimiento:** El cliente hace un `GET /coordinator` al Auth Service para pedir la URL del coordinador con menos carga (Client-Side Load Balancing).
+3. **Conexión:** El cliente abre un WebSocket seguro con el coordinador asignado.
+4. **Replicación P2P:** Los movimientos, físicas de los orbes y eventos de red se replican a todos los nodos de la red Mesh enviando un campo `origin` para evitar tormentas de broadcast.
 
 ---
 
@@ -348,31 +324,36 @@ Se implementó el flujo de **Google Identity Services** donde el cliente obtiene
 
 ---
 
-## Despliegue con ngrok
+---
 
-Para la sustentacion, abrir **tres tuneles** en terminales separadas:
+## Decisiones de Diseño (Parte III)
 
-```bash
-# Terminal 1 - Auth Service
-ngrok http 4000
+### 10. Mesh P2P Descentralizado
+Los coordinadores se descubren mediante el Auth Service (Directorio) y abren conexiones WebSocket persistentes entre ellos. Para evitar bucles infinitos en la red (Broadcast Storm), todos los paquetes viajan con un `origin`. Si un nodo recibe un paquete de sí mismo, lo descarta silenciosamente.
 
-# Terminal 2 - Coordinator
-ngrok http 5000
+### 11. Orden Lexicográfico de Conexión
+Para garantizar una sola conexión bidireccional entre cada par de coordinadores (y evitar conexiones duplicadas en cruz), se implementó un orden estricto de conexión. Solo el nodo con el ID "menor" alfabéticamente (ej: `coord-A` hacia `coord-B`) inicia la conexión. El nodo "mayor" recibe y acepta de forma pasiva.
 
-# Terminal 3 - Cliente Web
-ngrok http 3000
-```
+### 12. Directorio mediante Heartbeats (Tolerancia a Fallos)
+Cada coordinador emite un heartbeat HTTP cada 2 segundos al Auth Service reportando su estado, endpoints y carga actual. Si el Auth Service deja de recibir noticias de un nodo por más de 6 segundos, asume que ha muerto y lo elimina de la tabla de enrutamiento. Si un nodo cae, los clientes se reconectan automáticamente obteniendo instantáneamente un nodo sano (Alta Disponibilidad).
 
-Luego actualizar `client/js/config.js` con las URLs de ngrok:
+---
 
-```javascript
-window.APP_CONFIG = {
-    AUTH_API_URL: 'https://abc123.ngrok-free.app',
-    COORDINATOR_WS_URL: 'wss://def456.ngrok-free.app'
-};
-```
+## Despliegue Distribuido con Ngrok (Sustentación)
 
-> **IMPORTANTE:** Usar `wss://` (no `ws://`) para el Coordinator cuando se usa ngrok, porque ngrok expone por HTTPS. Si se mezcla `ws://` con `https://`, el navegador bloqueara la conexion por contenido mixto.
+El sistema está preparado nativamente para ejecutarse en múltiples computadoras a través de internet usando Ngrok y variables de entorno de Node.js.
+
+### Topología de Nodos Recomendada
+
+Para un grupo de trabajo de 6 personas:
+1. **PC 1 (Auth Service):** Ejecuta `node index.js` en `auth-service` y levanta `ngrok http 4000`. Este será el directorio central y base de datos.
+2. **PCs 2, 3 y 4 (Coordinadores del Mesh):** Corren su propio nodo en el puerto `5000`. Cada uno abre `ngrok http 5000`. 
+   - Modifican su archivo `.env` configurando su URL local de Ngrok (usando `wss://`) en `PUBLIC_URL` y agregando `/peer` al final para `PEER_URL`. 
+   - Cada PC se asigna un `COORDINATOR_ID` diferente (ej: `coord-A`, `coord-B`, `coord-C`).
+3. **PC 5 (Servidor Web):** Corre el frontend en el puerto 3000 y levanta `ngrok http 3000`. Modifica su `.env` configurando `VITE_AUTH_SERVICE_URL` apuntando al Ngrok del PC 1.
+4. **PC 6 (Jugadores):** Entran libremente a la URL pública de la página web desde Chrome y juegan.
+
+*Nota Técnica:* Gracias a la unificación del Upgrade del WebSocket bajo Express, cada PC coordinador solo necesita **un (1) túnel gratuito de Ngrok** para compartir el mismo puerto lógico con la red de Mesh (interna) y los clientes públicos.
 
 ---
 
