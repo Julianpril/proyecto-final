@@ -1,31 +1,34 @@
-# Proyecto Final – Sistemas Distribuidos (Parte I: Identidad)
+# Proyecto Final – Sistemas Distribuidos (Parte II: Juego en Vivo y Google Auth)
 
-Sistema distribuido para un videojuego web multijugador donde varios jugadores se conectan desde sus navegadores y todos ven en tiempo real quién está en línea. Esta primera entrega cubre la pieza de **identidad**: registro, autenticación JWT y canal WebSocket autenticado.
+Sistema distribuido para un videojuego web multijugador en tiempo real. Esta entrega final cubre la implementación de un **servidor autoritativo**, un **game loop sincronizado**, **autenticación con Google** y **features replicados** (extras).
 
 ---
 
 ## Arquitectura del Sistema
 
 ```mermaid
-graph LR
+graph TD
     subgraph Cliente Web - Puerto 3000
-        C[HTML + JS plano]
+        C[HTML5 Canvas + JS]
     end
 
     subgraph Auth Service - Puerto 4000
-        A[Express + SQLite + bcrypt + JWT]
+        A[Express + SQLite]
+        G[Google OAuth 2.0]
     end
 
     subgraph Coordinator - Puerto 5000
-        CO[Express + WebSocket + JWT verify]
-        M[(Map en memoria)]
+        CO[WebSocket Server]
+        GL[Game Loop 20Hz]
+        M[(Estado en Memoria)]
     end
 
-    C -- "POST /register\nPOST /login" --> A
+    C -- "Login Local / Google" --> A
+    A -- "ID Token Verify" --> G
     A -- "{ token, username }" --> C
-    C -- "ws://host:5000/connect?token=JWT" --> CO
-    CO -- "{ type: players_update }" --> C
-    CO --> M
+    C -- "Intents {x, y}" --> CO
+    CO -- "Broadcast State" --> C
+    GL -- "Update Physics" --> M
 ```
 
 ### Flujo de Comunicacion
@@ -314,6 +317,34 @@ Las contrasenas se hashean con `bcrypt` usando un factor de costo de 10 rounds a
 ### 5. CORS Habilitado en Auth Service
 
 El Auth Service usa `app.use(cors())` para permitir peticiones desde el origen del cliente (diferente puerto). Sin esto, el navegador bloquearia las peticiones de registro y login.
+
+---
+
+## Decisiones de Diseño (Parte II)
+
+### 6. Servidor Autoritativo
+
+A diferencia de sistemas donde el cliente decide su posición, aquí el cliente solo envía **intenciones** (eje X e Y). El servidor valida estas intenciones y calcula la posición final en el `tick()`.
+
+**Justificación:** Evita trampas de velocidad o teletransporte (Speedhacks/Teleport), ya que si un cliente intenta forzar una posición en su memoria local, el servidor lo ignorará y lo sobreescribirá en el siguiente broadcast de estado.
+
+### 7. Normalización de Movimiento Diagonal
+
+Se utiliza `Math.hypot(x, y)` para calcular la magnitud del vector de movimiento. Si la magnitud es mayor a 1, se divide el vector por su magnitud.
+
+**Justificación:** Sin normalización, un jugador moviéndose en diagonal (ej. arriba y derecha) viajaría a ~1.41 veces la velocidad normal ($\sqrt{1^2 + 1^2}$). La normalización garantiza una velocidad uniforme de 200px/s en cualquier dirección.
+
+### 8. Feature Extra: Color Replicado
+
+Se implementó un sistema de `extras` persistente durante la sesión. El cliente puede enviar un mensaje `extras_update` con un color hexadecimal.
+
+**Justificación:** Demuestra la capacidad del protocolo para manejar estados adicionales que no son físicos (como cosméticos o estados de animación) y replicarlos eficientemente a todos los clientes conectados.
+
+### 9. Google Auth con ID Token Verification
+
+Se implementó el flujo de **Google Identity Services** donde el cliente obtiene un `idToken` y el servidor lo valida usando la librería oficial `google-auth-library`.
+
+**Justificación:** Delegar la autenticación a un proveedor confiable aumenta la seguridad. Validamos el `audience` y el `sub` (identificador único estable) para asegurar que el token fue emitido específicamente para nuestra aplicación.
 
 ---
 

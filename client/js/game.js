@@ -5,6 +5,7 @@ export function createGame(config) {
         worldWidth: 480,
         worldHeight: 270,
         playerRadius: 10,
+        orbRadius: 8,
         backgroundColor: '#0f1419',
         gridColor: '#1f2730',
         gridSize: 30,
@@ -33,6 +34,46 @@ export function createGame(config) {
 
     const keys = new Set();
     let lastIntent = { x: 0, y: 0 };
+
+    // Floating score popups
+    const floatingTexts = [];
+    let animFrame = 0;
+
+    function addFloatingText(worldX, worldY, text, color) {
+        floatingTexts.push({
+            x: worldX * scaleX,
+            y: worldY * scaleY,
+            text,
+            color,
+            alpha: 1.0,
+            dy: -1.2,
+            life: 60, // frames
+        });
+    }
+
+    function updateFloatingTexts() {
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+            const ft = floatingTexts[i];
+            ft.y += ft.dy;
+            ft.life--;
+            ft.alpha = Math.max(0, ft.life / 60);
+            if (ft.life <= 0) floatingTexts.splice(i, 1);
+        }
+    }
+
+    function drawFloatingTexts() {
+        for (const ft of floatingTexts) {
+            ctx.save();
+            ctx.globalAlpha = ft.alpha;
+            ctx.font = `bold ${Math.max(10, 16 * ((scaleX + scaleY) / 2))}px Orbitron, system-ui`;
+            ctx.fillStyle = ft.color;
+            ctx.textAlign = 'center';
+            ctx.shadowColor = ft.color;
+            ctx.shadowBlur = 10;
+            ctx.fillText(ft.text, ft.x, ft.y);
+            ctx.restore();
+        }
+    }
 
     function computeDirection() {
         let x = 0, y = 0;
@@ -105,6 +146,44 @@ export function createGame(config) {
         return `hsl(${hue}, 70%, 55%)`;
     }
 
+    // === Draw Orbs with glow & pulse ===
+    function drawOrb(orb) {
+        const px = orb.x * scaleX;
+        const py = orb.y * scaleY;
+        const baseR = Math.max(2, opts.orbRadius * ((scaleX + scaleY) / 2));
+        const pulse = 1 + 0.15 * Math.sin(animFrame * 0.08 + orb.id * 2);
+        const r = baseR * pulse;
+
+        // Outer glow
+        ctx.save();
+        ctx.shadowColor = orb.color;
+        ctx.shadowBlur = 18 + 5 * Math.sin(animFrame * 0.06 + orb.id);
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        const grad = ctx.createRadialGradient(px, py, r * 0.2, px, py, r);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.4, orb.color);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.restore();
+
+        // Inner sparkle
+        ctx.beginPath();
+        ctx.arc(px, py, r * 0.35, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fill();
+
+        // Points label
+        const pointsMap = { gold: '1', diamond: '3', ruby: '5' };
+        const emoji = orb.type === 'gold' ? '⭐' : orb.type === 'diamond' ? '💎' : '💠';
+        ctx.font = `${Math.max(7, 10 * ((scaleX + scaleY) / 2))}px system-ui`;
+        ctx.fillStyle = orb.color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(emoji + (pointsMap[orb.type] || ''), px, py + r + 2);
+    }
+
     function drawPlayer(p) {
         const isLocal = p.userId === localPlayerId;
         const color = (p.extras && p.extras.color) || colorFromId(p.userId);
@@ -130,16 +209,103 @@ export function createGame(config) {
         ctx.fillText(text, px, py - pr - 4);
     }
 
+    // === Draw Leaderboard Overlay ===
+    function drawLeaderboard(scores) {
+        if (!scores || scores.length === 0) return;
+
+        const padding = 10;
+        const lineH = 18;
+        const maxShow = Math.min(scores.length, 5);
+        const boxW = 160;
+        const boxH = 24 + lineH * maxShow + padding;
+        const x = displayW - boxW - 10;
+        const y = 10;
+
+        // Background
+        ctx.save();
+        ctx.globalAlpha = 0.75;
+        ctx.fillStyle = '#0a0c15';
+        ctx.beginPath();
+        ctx.roundRect(x, y, boxW, boxH, 8);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = '#0ff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(x, y, boxW, boxH, 8);
+        ctx.stroke();
+        ctx.restore();
+
+        // Title
+        ctx.font = `bold ${11}px Orbitron, system-ui`;
+        ctx.fillStyle = '#0ff';
+        ctx.textAlign = 'center';
+        ctx.fillText('🏆 RANKING', x + boxW / 2, y + 16);
+
+        // Entries
+        ctx.font = `${10}px system-ui`;
+        ctx.textAlign = 'left';
+        const medals = ['🥇', '🥈', '🥉'];
+        for (let i = 0; i < maxShow; i++) {
+            const s = scores[i];
+            const isMe = s.userId === localPlayerId;
+            const ey = y + 28 + i * lineH;
+            const medal = i < 3 ? medals[i] : `${i + 1}.`;
+            ctx.fillStyle = isMe ? '#FFD700' : '#b0f0ff';
+            ctx.font = isMe ? `bold ${10}px system-ui` : `${10}px system-ui`;
+            const name = s.username.length > 10 ? s.username.slice(0, 9) + '…' : s.username;
+            ctx.fillText(`${medal} ${name}`, x + 8, ey);
+            ctx.textAlign = 'right';
+            ctx.fillText(`${s.score} pts`, x + boxW - 8, ey);
+            ctx.textAlign = 'left';
+        }
+    }
+
+    // === Draw own score ===
+    function drawMyScore(scores) {
+        if (!scores) return;
+        const me = scores.find(s => s.userId === localPlayerId);
+        const myScore = me ? me.score : 0;
+
+        ctx.save();
+        ctx.font = `bold ${13}px Orbitron, system-ui`;
+        ctx.fillStyle = '#FFD700';
+        ctx.textAlign = 'left';
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 8;
+        ctx.fillText(`⭐ ${myScore} pts`, 12, 22);
+        ctx.restore();
+    }
+
     function render() {
         const state = getRenderState();
         drawBackground();
-        if (!state || !Array.isArray(state.players)) return;
-        const sorted = [...state.players].sort((a,b) => {
-            if (a.userId === localPlayerId) return 1;
-            if (b.userId === localPlayerId) return -1;
-            return 0;
-        });
-        for (const p of sorted) drawPlayer(p);
+        if (!state) return;
+
+        // Draw orbs
+        if (Array.isArray(state.orbs)) {
+            for (const orb of state.orbs) drawOrb(orb);
+        }
+
+        // Draw players
+        if (Array.isArray(state.players)) {
+            const sorted = [...state.players].sort((a, b) => {
+                if (a.userId === localPlayerId) return 1;
+                if (b.userId === localPlayerId) return -1;
+                return 0;
+            });
+            for (const p of sorted) drawPlayer(p);
+        }
+
+        // Draw floating texts
+        updateFloatingTexts();
+        drawFloatingTexts();
+
+        // Draw HUD
+        drawMyScore(state.scores);
+        drawLeaderboard(state.scores);
+
+        animFrame++;
     }
 
     let running = false;
@@ -172,5 +338,5 @@ export function createGame(config) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    return { start, stop, destroy, options: opts };
+    return { start, stop, destroy, options: opts, addFloatingText };
 }
