@@ -3,34 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Juego - Arena Multijugador</title>
+    <title>Agar.io Distribuido — Arena</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="js/config.js"></script>
 </head>
 <body class="lobby-page">
-    <h1 data-text="SALA DE JUEGO">SALA DE JUEGO</h1>
+    <h1 data-text="AGAR.IO ARENA">AGAR.IO ARENA</h1>
     <div class="status">
         🎮 Conectado como: <strong id="currentUser">---</strong>
     </div>
-    <div class="game-wrapper">
-        <div class="game-container">
-            <canvas id="gameCanvas"></canvas>
-        </div>
-        <div id="collectFeed" class="collect-feed"></div>
+    <div class="infra-status" id="infraStatus">
+        <span id="infraCoord">⚙️ coord: —</span>
+        <span class="infra-sep">·</span>
+        <span id="infraAuth">🔐 auth: —</span>
     </div>
-    <p class="game-hint">🕹️ Usa <kbd>WASD</kbd> o <kbd>↑←↓→</kbd> para moverte · Recoge los orbes para sumar puntos</p>
+
+    <div class="game-wrapper">
+        <!-- Canvas + feed de eventos -->
+        <div class="game-area">
+            <div class="game-container">
+                <canvas id="gameCanvas"></canvas>
+            </div>
+            <div id="collectFeed" class="collect-feed"></div>
+        </div>
+
+        <!-- Panel de chat distribuido (Track 2.6) -->
+        <div class="chat-panel" id="chatPanel">
+            <div class="chat-header">💬 Chat Global</div>
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-input-row">
+                <input type="text" id="chatInput" placeholder="Escribe un mensaje..." maxlength="200" autocomplete="off" />
+                <button id="chatSendBtn" type="button">▶</button>
+            </div>
+        </div>
+    </div>
+
+    <p class="game-hint">
+        🕹️ <kbd>WASD</kbd> / <kbd>↑←↓→</kbd> para moverte · Come orbes para crecer ·
+        ¡Come jugadores más pequeños que tú! · <kbd>Enter</kbd> para chatear
+    </p>
+
     <div class="controls">
-        <label class="color-picker-label" for="playerColor">🎨 Color del jugador</label>
+        <label class="color-picker-label" for="playerColor">🎨 Color</label>
         <input id="playerColor" class="color-picker" type="color" value="#ff5500" />
+        <a href="spectate.html" class="logout-btn" style="text-decoration:none; padding:10px 20px; font-size:0.85rem;">👁️ ESPECTADOR</a>
         <button id="logoutBtn" class="logout-btn">🚪 CERRAR SESIÓN</button>
     </div>
+
     <div class="particles" id="particles"></div>
 
-    <!-- Modal de desconexión -->
+    <!-- Modal de desconexión / muerte -->
     <div id="disconnectModal" class="modal-overlay" style="display: none;">
         <div class="modal-content">
-            <h3>Conexión Perdida</h3>
-            <p>Se ha perdido la conexión con el servidor.</p>
+            <h3 id="modalTitle">Conexión Perdida</h3>
+            <p id="modalMsg">Se ha perdido la conexión con el servidor.</p>
             <button id="modalOkBtn" class="modal-btn">Volver al Login</button>
         </div>
     </div>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espectador — Agar.io Arena</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/config.js"></script>
+</head>
+<body class="lobby-page">
+    <h1 data-text="MODO ESPECTADOR">MODO ESPECTADOR</h1>
+
+    <div class="spectator-badge">
+        👁️ SOLO OBSERVAS — No puedes jugar en este modo
+    </div>
+
+    <div class="status" id="statusBar">
+        Conectando al servidor...
+    </div>
+
+    <div class="game-wrapper">
+        <!-- Canvas del juego -->
+        <div class="game-area">
+            <div class="game-container">
+                <canvas id="gameCanvas"></canvas>
+            </div>
+            <div id="eventFeed" class="collect-feed"></div>
+        </div>
+
+        <!-- Chat (solo lectura) -->
+        <div class="chat-panel" id="chatPanel">
+            <div class="chat-header">💬 Chat Global <span style="color:#666;font-size:10px">(solo lectura)</span></div>
+            <div class="chat-messages" id="chatMessages"></div>
+        </div>
+    </div>
+
+    <div class="controls" style="margin-top:1rem;">
+        <a href="index.html" class="logout-btn" style="text-decoration:none; padding:10px 20px;">🔙 VOLVER AL LOGIN</a>
+        <a href="lobby.html" class="logout-btn" style="text-decoration:none; padding:10px 20px; border-color:cyan; color:cyan;">🎮 JUGAR</a>
+    </div>
+
+    <div class="particles" id="particles"></div>
+    <script src="js/particles.js"></script>
+    <script type="module" src="js/spectate.js"></script>
+</body>
+</html>
