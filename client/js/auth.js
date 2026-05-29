@@ -1,18 +1,40 @@
 // js/auth.js - Lógica de registro e inicio de sesión (local + Google)
 (async function () {
-    const API_URL = window.APP_CONFIG.AUTH_API_URL;
 
-    // Use GOOGLE_CLIENT_ID from config.js if available, otherwise try fetching from auth service
+    // ─── Taller 7: AUTH_URLS list with leader fallback ───────────────────
+    const AUTH_URLS = (window.APP_CONFIG.AUTH_URLS && window.APP_CONFIG.AUTH_URLS.length)
+        ? window.APP_CONFIG.AUTH_URLS
+        : [window.APP_CONFIG.AUTH_API_URL || 'http://localhost:4000'];
+
+    async function authFetch(path, options = {}) {
+        let lastErr = null;
+        for (const base of AUTH_URLS) {
+            try {
+                const res = await fetch(`${base}${path}`, options);
+                if (res.status === 503) {
+                    const body = await res.json().catch(() => ({}));
+                    if (body.leaderUrl) {
+                        // Retry directly against the leader
+                        const r2 = await fetch(`${body.leaderUrl}${path}`, options).catch(() => null);
+                        if (r2) return r2;
+                    }
+                    continue;
+                }
+                return res;
+            } catch (e) {
+                lastErr = e;
+            }
+        }
+        throw lastErr || new Error('Sin auth disponible');
+    }
+
+    // ─── /config (Google Client ID) ──────────────────────────────────────
     if (!window.APP_CONFIG.GOOGLE_CLIENT_ID) {
         try {
-            // ngrok-skip-browser-warning evita que ngrok devuelva su página HTML
-            // de advertencia (que carece de CORS headers) en lugar de la respuesta real
-            const cfgRes = await fetch(`${API_URL}/config?ngrok-skip-browser-warning=true`);
+            const cfgRes = await authFetch('/config?ngrok-skip-browser-warning=true');
             if (cfgRes.ok) {
                 const cfg = await cfgRes.json();
                 window.APP_CONFIG.GOOGLE_CLIENT_ID = cfg.GOOGLE_CLIENT_ID || '';
-            } else {
-                console.warn('No se obtuvo /config desde auth-service:', cfgRes.status);
             }
         } catch (err) {
             console.warn('Error al pedir /config:', err);
@@ -20,20 +42,16 @@
     }
 
     const GOOGLE_CLIENT_ID = window.APP_CONFIG.GOOGLE_CLIENT_ID;
-
-    // --- Configurar botón de Google ---
     const googleDiv = document.getElementById('g_id_onload');
     if (googleDiv && GOOGLE_CLIENT_ID && GOOGLE_CLIENT_ID !== '') {
         googleDiv.setAttribute('data-client_id', GOOGLE_CLIENT_ID);
-    } else {
-        console.warn('Google Client ID no configurado en el servidor');
     }
 
-    // --- Registro local ---
-    const regBtn = document.getElementById('registerBtn');
+    // ─── Registro local ──────────────────────────────────────────────────
+    const regBtn      = document.getElementById('registerBtn');
     const regUsername = document.getElementById('regUsername');
     const regPassword = document.getElementById('regPassword');
-    const regMsg = document.getElementById('regMessage');
+    const regMsg      = document.getElementById('regMessage');
 
     regBtn.addEventListener('click', async () => {
         const username = regUsername.value.trim();
@@ -43,17 +61,14 @@
             regMsg.textContent = '❌ Usuario y contraseña requeridos';
             return;
         }
-
         regBtn.disabled = true;
         regBtn.textContent = '⏳ Forjando...';
-
         try {
-            const res = await fetch(`${API_URL}/register`, {
+            const res = await authFetch('/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
             });
-
             if (res.status === 201) {
                 regMsg.className = 'success';
                 regMsg.textContent = '✅ ¡Guerrero registrado! Ahora inicia sesión.';
@@ -77,11 +92,11 @@
         }
     });
 
-    // --- Login local ---
-    const loginBtn = document.getElementById('loginBtn');
+    // ─── Login local ─────────────────────────────────────────────────────
+    const loginBtn      = document.getElementById('loginBtn');
     const loginUsername = document.getElementById('loginUsername');
     const loginPassword = document.getElementById('loginPassword');
-    const loginMsg = document.getElementById('loginMessage');
+    const loginMsg      = document.getElementById('loginMessage');
 
     loginBtn.addEventListener('click', async () => {
         const username = loginUsername.value.trim();
@@ -91,17 +106,14 @@
             loginMsg.textContent = '❌ Usuario y contraseña requeridos';
             return;
         }
-
         loginBtn.disabled = true;
         loginBtn.textContent = '⏳ Conectando...';
-
         try {
-            const res = await fetch(`${API_URL}/login`, {
+            const res = await authFetch('/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
             });
-
             if (res.status === 200) {
                 const data = await res.json();
                 localStorage.setItem('token', data.token);
@@ -125,11 +137,11 @@
         }
     });
 
-    // --- Login con Google (maneja 409 username_required) ---
+    // ─── Login con Google ────────────────────────────────────────────────
     window.handleGoogleLogin = async (response) => {
         const idToken = response.credential;
         try {
-            let res = await fetch(`${API_URL}/auth/google`, {
+            let res = await authFetch('/auth/google', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ idToken })
@@ -140,13 +152,12 @@
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('username', data.username);
                 window.location.href = 'lobby.html';
-            } 
-            else if (res.status === 409) {
+            } else if (res.status === 409) {
                 const error = await res.json();
                 if (error.error === 'username_required') {
-                    let chosen = prompt('Primera vez con Google. Elige un nombre de guerrero:');
+                    const chosen = prompt('Primera vez con Google. Elige un nombre de guerrero:');
                     if (!chosen) return;
-                    res = await fetch(`${API_URL}/auth/google`, {
+                    res = await authFetch('/auth/google', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ idToken, username: chosen })
@@ -166,8 +177,7 @@
                 } else {
                     alert('Error inesperado');
                 }
-            }
-            else if (res.status === 401) {
+            } else if (res.status === 401) {
                 alert('Token de Google inválido o email no verificado');
             } else {
                 const err = await res.json();
@@ -178,4 +188,5 @@
             alert('Error de conexión con el servidor de autenticación');
         }
     };
+
 })();

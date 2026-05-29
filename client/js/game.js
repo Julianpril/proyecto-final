@@ -189,7 +189,9 @@ export function createGame(config) {
         const color = (p.extras && p.extras.color) || colorFromId(p.userId);
         const px = p.x * scaleX;
         const py = p.y * scaleY;
-        const pr = Math.max(2, opts.playerRadius * ((scaleX + scaleY) / 2));
+        // Usa el radio dinámico del servidor (mecánica Agar.io) si está disponible
+        const serverRadius = (p.radius && p.radius > 0) ? p.radius : opts.playerRadius;
+        const pr = Math.max(2, serverRadius * ((scaleX + scaleY) / 2));
 
         ctx.beginPath();
         ctx.arc(px, py, pr, 0, Math.PI * 2);
