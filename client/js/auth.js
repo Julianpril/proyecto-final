@@ -1,12 +1,12 @@
-// js/auth.js - Lógica de registro e inicio de sesión (local + Google)
+// auth.js - login y registro
 (async function () {
 
-    // ─── Taller 7: AUTH_URLS list with leader fallback ───────────────────
-    const AUTH_URLS = (window.APP_CONFIG.AUTH_URLS && window.APP_CONFIG.AUTH_URLS.length)
+    const AUTH_URLS = (window.APP_CONFIG.AUTH_URLS?.length)
         ? window.APP_CONFIG.AUTH_URLS
         : [window.APP_CONFIG.AUTH_API_URL || 'http://localhost:4000'];
 
     async function authFetch(path, options = {}) {
+        options.headers = { 'ngrok-skip-browser-warning': 'true', ...(options.headers || {}) };
         let lastErr = null;
         for (const base of AUTH_URLS) {
             try {
@@ -14,40 +14,34 @@
                 if (res.status === 503) {
                     const body = await res.json().catch(() => ({}));
                     if (body.leaderUrl) {
-                        // Retry directly against the leader
                         const r2 = await fetch(`${body.leaderUrl}${path}`, options).catch(() => null);
                         if (r2) return r2;
                     }
                     continue;
                 }
                 return res;
-            } catch (e) {
-                lastErr = e;
-            }
+            } catch (e) { lastErr = e; }
         }
         throw lastErr || new Error('Sin auth disponible');
     }
 
-    // ─── /config (Google Client ID) ──────────────────────────────────────
+    // cargar Google Client ID si no viene en el config
     if (!window.APP_CONFIG.GOOGLE_CLIENT_ID) {
         try {
-            const cfgRes = await authFetch('/config?ngrok-skip-browser-warning=true');
-            if (cfgRes.ok) {
-                const cfg = await cfgRes.json();
+            const res = await authFetch('/config');
+            if (res.ok) {
+                const cfg = await res.json();
                 window.APP_CONFIG.GOOGLE_CLIENT_ID = cfg.GOOGLE_CLIENT_ID || '';
             }
-        } catch (err) {
-            console.warn('Error al pedir /config:', err);
-        }
+        } catch (err) { console.warn('No se pudo cargar /config:', err); }
     }
 
-    const GOOGLE_CLIENT_ID = window.APP_CONFIG.GOOGLE_CLIENT_ID;
     const googleDiv = document.getElementById('g_id_onload');
-    if (googleDiv && GOOGLE_CLIENT_ID && GOOGLE_CLIENT_ID !== '') {
-        googleDiv.setAttribute('data-client_id', GOOGLE_CLIENT_ID);
+    if (googleDiv && window.APP_CONFIG.GOOGLE_CLIENT_ID) {
+        googleDiv.setAttribute('data-client_id', window.APP_CONFIG.GOOGLE_CLIENT_ID);
     }
 
-    // ─── Registro local ──────────────────────────────────────────────────
+    // registro
     const regBtn      = document.getElementById('registerBtn');
     const regUsername = document.getElementById('regUsername');
     const regPassword = document.getElementById('regPassword');
@@ -72,11 +66,10 @@
             if (res.status === 201) {
                 regMsg.className = 'success';
                 regMsg.textContent = '✅ ¡Guerrero registrado! Ahora inicia sesión.';
-                regUsername.value = '';
-                regPassword.value = '';
+                regUsername.value = ''; regPassword.value = '';
             } else if (res.status === 409) {
                 regMsg.className = 'error';
-                regMsg.textContent = '⚠️ Ese nombre ya existe en el campo de batalla';
+                regMsg.textContent = '⚠️ Ese nombre ya existe';
             } else {
                 const data = await res.json();
                 regMsg.className = 'error';
@@ -84,7 +77,7 @@
             }
         } catch (err) {
             regMsg.className = 'error';
-            regMsg.textContent = '💀 Error de conexión con el servidor de autenticación';
+            regMsg.textContent = '💀 Error de conexión';
             console.error(err);
         } finally {
             regBtn.disabled = false;
@@ -92,7 +85,7 @@
         }
     });
 
-    // ─── Login local ─────────────────────────────────────────────────────
+    // login
     const loginBtn      = document.getElementById('loginBtn');
     const loginUsername = document.getElementById('loginUsername');
     const loginPassword = document.getElementById('loginPassword');
@@ -121,7 +114,7 @@
                 window.location.href = 'lobby.html';
             } else if (res.status === 401) {
                 loginMsg.className = 'error';
-                loginMsg.textContent = '🔐 Credenciales inválidas, guerrero';
+                loginMsg.textContent = '🔐 Credenciales inválidas';
             } else {
                 const data = await res.json();
                 loginMsg.className = 'error';
@@ -129,7 +122,7 @@
             }
         } catch (err) {
             loginMsg.className = 'error';
-            loginMsg.textContent = '💀 Error de conexión con el servidor de autenticación';
+            loginMsg.textContent = '💀 Error de conexión';
             console.error(err);
         } finally {
             loginBtn.disabled = false;
@@ -137,7 +130,7 @@
         }
     });
 
-    // ─── Login con Google ────────────────────────────────────────────────
+    // login con Google
     window.handleGoogleLogin = async (response) => {
         const idToken = response.credential;
         try {
@@ -155,7 +148,7 @@
             } else if (res.status === 409) {
                 const error = await res.json();
                 if (error.error === 'username_required') {
-                    const chosen = prompt('Primera vez con Google. Elige un nombre de guerrero:');
+                    const chosen = prompt('Primera vez con Google. Elige un nombre:');
                     if (!chosen) return;
                     res = await authFetch('/auth/google', {
                         method: 'POST',
@@ -168,24 +161,22 @@
                         localStorage.setItem('username', data.username);
                         window.location.href = 'lobby.html';
                     } else if (res.status === 409) {
-                        alert('Nombre de usuario ya en uso, elige otro');
+                        alert('Nombre ya en uso, elige otro');
                     } else {
                         alert('Error al crear usuario');
                     }
                 } else if (error.error === 'username_taken') {
-                    alert('El nombre de usuario ya está en uso');
-                } else {
-                    alert('Error inesperado');
+                    alert('Nombre de usuario ya en uso');
                 }
             } else if (res.status === 401) {
-                alert('Token de Google inválido o email no verificado');
+                alert('Token de Google inválido');
             } else {
                 const err = await res.json();
-                alert('Error con Google: ' + (err.error || 'desconocido'));
+                alert('Error: ' + (err.error || 'desconocido'));
             }
         } catch (err) {
             console.error(err);
-            alert('Error de conexión con el servidor de autenticación');
+            alert('Error de conexión');
         }
     };
 

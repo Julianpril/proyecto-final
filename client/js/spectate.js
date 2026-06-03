@@ -10,9 +10,7 @@ let ws           = null;
 let game         = null;
 let currentState = { players: [], orbs: [], scores: [] };
 
-// ═══════════════════════════════════════════════════════════════════════
-//  UTILIDADES
-// ═══════════════════════════════════════════════════════════════════════
+// utilidades
 
 function escapeHtml(str) {
     return String(str)
@@ -48,9 +46,9 @@ function showEvent(html, color, isKill = false) {
     }, 4000);
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-//  CONEXIÓN COMO ESPECTADOR
-// ═══════════════════════════════════════════════════════════════════════
+// conexión como espectador
+
+const NGROK_HEADERS = { 'ngrok-skip-browser-warning': 'true' };
 
 async function getCoordinator() {
     const urls = (window.APP_CONFIG.AUTH_URLS && window.APP_CONFIG.AUTH_URLS.length)
@@ -58,12 +56,12 @@ async function getCoordinator() {
         : [window.APP_CONFIG.AUTH_API_URL || 'http://localhost:4000'];
     for (const base of urls) {
         try {
-            const res = await fetch(`${base}/coordinator`);
+            const res = await fetch(`${base}/coordinator`, { headers: NGROK_HEADERS });
             if (res.ok) return res.json();
             if (res.status === 503) {
                 const body = await res.json().catch(() => ({}));
                 if (body.leaderUrl) {
-                    const r2 = await fetch(`${body.leaderUrl}/coordinator`).catch(() => null);
+                    const r2 = await fetch(`${body.leaderUrl}/coordinator`, { headers: NGROK_HEADERS }).catch(() => null);
                     if (r2 && r2.ok) return r2.json();
                 }
             }
@@ -142,9 +140,7 @@ async function connect() {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-//  INICIALIZACIÓN DEL CANVAS
-// ═══════════════════════════════════════════════════════════════════════
+// inicialización del canvas
 
 function initGame(world) {
     if (game) game.destroy();

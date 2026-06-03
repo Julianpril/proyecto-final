@@ -11,15 +11,15 @@ export function createGame(config) {
         gridSize: 30,
         ...options
     };
-    // World logical size (units from server)
+    // Tamaño lógico del mundo (unidades que vienen del servidor)
     const worldW = opts.worldWidth;
     const worldH = opts.worldHeight;
 
-    // Display size in CSS pixels (small square by default)
+    // Tamaño visual en píxeles CSS (cuadrado pequeño por defecto)
     const displayW = options.displayWidth || 500;
     const displayH = options.displayHeight || Math.round((displayW * worldH) / worldW);
 
-    // Support high-DPI displays while keeping canvas CSS size small
+    // Soporte para pantallas de alta resolución sin agrandar el canvas en CSS
     const dpr = window.devicePixelRatio || 1;
     canvas.style.width = displayW + 'px';
     canvas.style.height = displayH + 'px';
@@ -28,14 +28,14 @@ export function createGame(config) {
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
-    // Scale factors: map world coordinates -> display pixels
+    // Factores de escala: convierte coordenadas del mundo a píxeles de pantalla
     const scaleX = displayW / worldW;
     const scaleY = displayH / worldH;
 
     const keys = new Set();
     let lastIntent = { x: 0, y: 0 };
 
-    // Floating score popups
+    // Textos flotantes de puntos
     const floatingTexts = [];
     let animFrame = 0;
 
@@ -47,7 +47,7 @@ export function createGame(config) {
             color,
             alpha: 1.0,
             dy: -1.2,
-            life: 60, // frames
+            life: 60, // fotogramas
         });
     }
 
@@ -146,7 +146,7 @@ export function createGame(config) {
         return `hsl(${hue}, 70%, 55%)`;
     }
 
-    // === Draw Orbs with glow & pulse ===
+    // === Dibuja los orbes con brillo y pulso ===
     function drawOrb(orb) {
         const px = orb.x * scaleX;
         const py = orb.y * scaleY;
@@ -154,7 +154,7 @@ export function createGame(config) {
         const pulse = 1 + 0.15 * Math.sin(animFrame * 0.08 + orb.id * 2);
         const r = baseR * pulse;
 
-        // Outer glow
+        // Brillo exterior
         ctx.save();
         ctx.shadowColor = orb.color;
         ctx.shadowBlur = 18 + 5 * Math.sin(animFrame * 0.06 + orb.id);
@@ -168,13 +168,13 @@ export function createGame(config) {
         ctx.fill();
         ctx.restore();
 
-        // Inner sparkle
+        // Destello interior
         ctx.beginPath();
         ctx.arc(px, py, r * 0.35, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(255,255,255,0.85)';
         ctx.fill();
 
-        // Points label
+        // Etiqueta de puntos del orbe
         const pointsMap = { gold: '1', diamond: '3', ruby: '5' };
         const emoji = orb.type === 'gold' ? '⭐' : orb.type === 'diamond' ? '💎' : '💠';
         ctx.font = `${Math.max(7, 10 * ((scaleX + scaleY) / 2))}px system-ui`;
@@ -211,7 +211,7 @@ export function createGame(config) {
         ctx.fillText(text, px, py - pr - 4);
     }
 
-    // === Draw Leaderboard Overlay ===
+    // === Dibuja el marcador superpuesto ===
     function drawLeaderboard(scores) {
         if (!scores || scores.length === 0) return;
 
@@ -223,7 +223,7 @@ export function createGame(config) {
         const x = displayW - boxW - 10;
         const y = 10;
 
-        // Background
+        // Fondo del panel
         ctx.save();
         ctx.globalAlpha = 0.75;
         ctx.fillStyle = '#0a0c15';
@@ -238,13 +238,13 @@ export function createGame(config) {
         ctx.stroke();
         ctx.restore();
 
-        // Title
+        // Título del marcador
         ctx.font = `bold ${11}px Orbitron, system-ui`;
         ctx.fillStyle = '#0ff';
         ctx.textAlign = 'center';
         ctx.fillText('🏆 RANKING', x + boxW / 2, y + 16);
 
-        // Entries
+        // Entradas del marcador
         ctx.font = `${10}px system-ui`;
         ctx.textAlign = 'left';
         const medals = ['🥇', '🥈', '🥉'];
@@ -263,7 +263,7 @@ export function createGame(config) {
         }
     }
 
-    // === Draw own score ===
+    // === Dibuja el puntaje propio ===
     function drawMyScore(scores) {
         if (!scores) return;
         const me = scores.find(s => s.userId === localPlayerId);
@@ -284,12 +284,12 @@ export function createGame(config) {
         drawBackground();
         if (!state) return;
 
-        // Draw orbs
+        // Dibuja los orbes
         if (Array.isArray(state.orbs)) {
             for (const orb of state.orbs) drawOrb(orb);
         }
 
-        // Draw players
+        // Dibuja los jugadores
         if (Array.isArray(state.players)) {
             const sorted = [...state.players].sort((a, b) => {
                 if (a.userId === localPlayerId) return 1;
@@ -299,11 +299,11 @@ export function createGame(config) {
             for (const p of sorted) drawPlayer(p);
         }
 
-        // Draw floating texts
+        // Dibuja los textos flotantes
         updateFloatingTexts();
         drawFloatingTexts();
 
-        // Draw HUD
+        // Dibuja el HUD
         drawMyScore(state.scores);
         drawLeaderboard(state.scores);
 
