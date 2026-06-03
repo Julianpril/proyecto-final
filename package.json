@@ -3,13 +3,20 @@
   "version": "1.0.0",
   "description": "Sistema distribuido para un videojuego multijugador",
   "scripts": {
-    "start": "concurrently \"npm run start:auth\" \"npm run start:coord:a\" \"npm run start:coord:b\" \"npm run start:coord:c\" \"npm run start:client\"",
-    "start:auth": "cd auth-service && npm rebuild better-sqlite3 && node index.js",
-    "start:coord:a": "cd coordinator && cross-env PORT=5000 PEER_PORT=5001 COORDINATOR_ID=coord-A PUBLIC_URL=ws://localhost:5000 PEER_URL=ws://localhost:5001 node index.js",
-    "start:coord:b": "cd coordinator && cross-env PORT=5002 PEER_PORT=5003 COORDINATOR_ID=coord-B PUBLIC_URL=ws://localhost:5002 PEER_URL=ws://localhost:5003 node index.js",
-    "start:coord:c": "cd coordinator && cross-env PORT=5004 PEER_PORT=5005 COORDINATOR_ID=coord-C PUBLIC_URL=ws://localhost:5004 PEER_URL=ws://localhost:5005 node index.js",
+    "start": "concurrently \"npm run start:auth:a\" \"npm run start:auth:b\" \"npm run start:auth:c\" \"npm run start:coord:a\" \"npm run start:coord:b\" \"npm run start:coord:c\" \"npm run start:client\"",
+
+    "start:auth":   "cd auth-service && cross-env PORT=4000 PEER_PORT=4001 AUTH_ID=auth-a PUBLIC_URL=https://breadless-keren-topfull.ngrok-free.dev PEER_URL=ws://localhost:4001 AUTH_PEERS=ws://localhost:4003,ws://localhost:4005 DB_PATH=users-a.db node index.js",
+    "start:auth:a": "cd auth-service && cross-env PORT=4000 PEER_PORT=4001 AUTH_ID=auth-a PUBLIC_URL=https://breadless-keren-topfull.ngrok-free.dev PEER_URL=ws://localhost:4001 AUTH_PEERS=ws://localhost:4003,ws://localhost:4005 DB_PATH=users-a.db node index.js",
+    "start:auth:b": "cd auth-service && cross-env PORT=4002 PEER_PORT=4003 AUTH_ID=auth-b PUBLIC_URL=http://localhost:4002 PEER_URL=ws://localhost:4003 AUTH_PEERS=ws://localhost:4001,ws://localhost:4005 DB_PATH=users-b.db node index.js",
+    "start:auth:c": "cd auth-service && cross-env PORT=4004 PEER_PORT=4005 AUTH_ID=auth-c PUBLIC_URL=http://localhost:4004 PEER_URL=ws://localhost:4005 AUTH_PEERS=ws://localhost:4001,ws://localhost:4003 DB_PATH=users-c.db node index.js",
+
+    "start:coord:a": "cd coordinator && cross-env PORT=5000 COORDINATOR_ID=coord-A PUBLIC_URL=wss://subvitalised-arie-morphemically.ngrok-free.dev PEER_URL=wss://subvitalised-arie-morphemically.ngrok-free.dev/peer AUTH_URLS=https://breadless-keren-topfull.ngrok-free.dev,http://localhost:4002,http://localhost:4004 node index.js",
+    "start:coord:b": "cd coordinator && cross-env PORT=5002 COORDINATOR_ID=coord-B PUBLIC_URL=wss://PON_AQUI_URL_NGROK_COORD_B PEER_URL=wss://PON_AQUI_URL_NGROK_COORD_B/peer AUTH_URLS=https://breadless-keren-topfull.ngrok-free.dev,http://localhost:4002,http://localhost:4004 node index.js",
+    "start:coord:c": "cd coordinator && cross-env PORT=5004 COORDINATOR_ID=coord-C PUBLIC_URL=ws://localhost:5004 PEER_URL=ws://localhost:5004/peer AUTH_URLS=https://breadless-keren-topfull.ngrok-free.dev,http://localhost:4002,http://localhost:4004 node index.js",
+
     "start:client": "node client/prepare.js && npx -y serve client -p 3000",
-    "install:all": "npm install && cd auth-service && npm install && cd ../coordinator && npm install"
+    "setup": "cd auth-service && npm install && npm rebuild better-sqlite3 && cd ../coordinator && npm install",
+    "install:all": "npm install && cd auth-service && npm install && npm rebuild better-sqlite3 && cd ../coordinator && npm install"
   },
   "dependencies": {
     "all": "^0.0.0",
